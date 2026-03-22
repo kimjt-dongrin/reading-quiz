@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reading Quiz Challenge</title>
+<style>
+:root {
+  --primary: #6C63FF;
+  --primary-light: #8B85FF;
+  --secondary: #FF6B6B;
+  --accent: #FFD93D;
+  --success: #4CAF50;
+  --bg: #F0F2FF;
+  --card: #FFFFFF;
+  --text: #2D3436;
+  --text-light: #636E72;
+  --radius: 16px;
+  --shadow: 0 4px 20px rgba(108,99,255,0.12);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh;
+}
+.app { max-width: 480px; margin: 0 auto; padding: 0 16px 100px; }
+
+/* Header */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 0; position: sticky; top: 0; background: var(--bg); z-index: 100;
+}
+.header h1 { font-size: 1.3rem; }
+.header-actions { display: flex; gap: 8px; }
+.icon-btn {
+  width: 40px; height: 40px; border-radius: 50%; border: none;
+  background: var(--card); box-shadow: var(--shadow); cursor: pointer;
+  font-size: 1.2rem; display: flex; align-items: center; justify-content: center;
+  transition: transform 0.2s;
+}
+.icon-btn:hover { transform: scale(1.1); }
+
+/* Navigation */
+.nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--card); box-shadow: 0 -2px 20px rgba(0,0,0,0.08);
+  display: flex; justify-content: center; z-index: 200;
+  padding: 8px 0 env(safe-area-inset-bottom, 8px);
+}
+.nav-inner { display: flex; gap: 0; max-width: 480px; width: 100%; }
+.nav-btn {
+  flex: 1; border: none; background: none; padding: 8px 4px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  color: var(--text-light); font-size: 0.7rem; transition: color 0.2s;
+}
+.nav-btn.active { color: var(--primary); }
+.nav-btn .nav-icon { font-size: 1.4rem; }
+
+/* Cards */
+.card {
+  background: var(--card); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px;
+}
+.card-title { font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 24px; border-radius: 12px; border: none;
+  font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  width: 100%;
+}
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-light); transform: translateY(-1px); }
+.btn-secondary { background: #EEF; color: var(--primary); }
+.btn-danger { background: #FEE; color: var(--secondary); }
+.btn-success { background: var(--success); color: white; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-sm { padding: 8px 16px; font-size: 0.85rem; width: auto; }
+
+/* View containers */
+.view { display: none; }
+.view.active { display: block; }
+
+/* Welcome */
+.welcome-screen {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 80vh; text-align: center;
+  padding: 20px;
+}
+.welcome-screen .welcome-icon { font-size: 5rem; margin-bottom: 16px; }
+.welcome-screen h2 { font-size: 1.6rem; margin-bottom: 8px; }
+.welcome-screen p { color: var(--text-light); margin-bottom: 24px; font-size: 0.9rem; }
+.welcome-screen .form-group { width: 100%; max-width: 300px; margin-bottom: 16px; }
+.avatar-picker { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
+.avatar-option {
+  width: 48px; height: 48px; border-radius: 50%; border: 3px solid transparent;
+  font-size: 1.8rem; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.2s; background: #F0F0FF;
+}
+.avatar-option:hover { transform: scale(1.1); }
+.avatar-option.selected { border-color: var(--primary); background: #E0E0FF; }
+
+/* Home */
+.profile-banner {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+}
+.profile-avatar {
+  width: 48px; height: 48px; border-radius: 50%; background: var(--card);
+  box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem;
+}
+.profile-greeting { font-size: 1.1rem; font-weight: 700; }
+.profile-sub { font-size: 0.8rem; color: var(--text-light); }
+
+.stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.stat-card {
+  background: var(--card); border-radius: var(--radius); padding: 16px;
+  box-shadow: var(--shadow); text-align: center;
+}
+.stat-value { font-size: 1.8rem; font-weight: 800; color: var(--primary); }
+.stat-label { font-size: 0.75rem; color: var(--text-light); margin-top: 4px; }
+.earnings-card {
+  background: linear-gradient(135deg, var(--accent), #FFB347);
+  border-radius: var(--radius); padding: 20px; text-align: center;
+  box-shadow: var(--shadow); margin-bottom: 16px;
+}
+.earnings-value { font-size: 2.2rem; font-weight: 800; color: #5D4E37; }
+.earnings-label { font-size: 0.85rem; color: #7D6E57; }
+
+/* Book list */
+.book-item {
+  display: flex; gap: 12px; padding: 12px; border-radius: 12px;
+  background: #F8F9FF; margin-bottom: 8px; cursor: pointer;
+  transition: background 0.2s;
+}
+.book-item:hover { background: #EEF0FF; }
+.book-cover-thumb {
+  width: 50px; height: 70px; border-radius: 8px; object-fit: cover;
+  background: #DDD;
+}
+.book-cover-thumb.placeholder {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; background: linear-gradient(135deg, var(--primary-light), var(--primary));
+  color: white;
+}
+.book-info { flex: 1; }
+.book-title { font-weight: 700; font-size: 0.9rem; }
+.book-author { font-size: 0.75rem; color: var(--text-light); }
+.book-progress { margin-top: 6px; }
+.progress-bar {
+  height: 6px; background: #E8E8F0; border-radius: 3px; overflow: hidden;
+}
+.progress-fill { height: 100%; background: var(--primary); border-radius: 3px; transition: width 0.5s; }
+.progress-text { font-size: 0.7rem; color: var(--text-light); margin-top: 2px; }
+
+/* Add Book */
+.upload-zone {
+  border: 3px dashed #C8C8E0; border-radius: var(--radius); padding: 40px 20px;
+  text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 16px;
+}
+.upload-zone:hover, .upload-zone.dragover { border-color: var(--primary); background: #F0F0FF; }
+.upload-zone .icon { font-size: 3rem; margin-bottom: 12px; }
+.upload-zone p { color: var(--text-light); font-size: 0.9rem; }
+.preview-img {
+  max-width: 200px; max-height: 280px; border-radius: 12px;
+  box-shadow: var(--shadow); margin: 16px auto; display: block;
+}
+.book-form { display: flex; flex-direction: column; gap: 12px; }
+.form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+.form-group input, .form-group select {
+  width: 100%; padding: 10px 14px; border: 2px solid #E0E0F0;
+  border-radius: 10px; font-size: 1rem; outline: none; transition: border 0.2s;
+}
+.form-group input:focus { border-color: var(--primary); }
+
+/* Quiz */
+.quiz-header {
+  text-align: center; padding: 16px; margin-bottom: 16px;
+}
+.quiz-progress-text { font-size: 0.85rem; color: var(--text-light); }
+.quiz-progress-bar {
+  height: 8px; background: #E8E8F0; border-radius: 4px; overflow: hidden; margin-top: 8px;
+}
+.quiz-progress-fill { height: 100%; background: var(--primary); transition: width 0.3s; border-radius: 4px; }
+
+.question-card {
+  background: var(--card); border-radius: var(--radius); padding: 20px;
+  box-shadow: var(--shadow); margin-bottom: 16px;
+}
+.question-number {
+  display: inline-block; background: var(--primary); color: white;
+  padding: 2px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 700;
+  margin-bottom: 8px;
+}
+.question-points {
+  display: inline-block; background: var(--accent); color: #5D4E37;
+  padding: 2px 8px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;
+  margin-left: 6px;
+}
+.question-type-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 0.7rem;
+  font-weight: 600; margin-left: 6px;
+}
+.badge-mc { background: #E8F5E9; color: #2E7D32; }
+.badge-sa { background: #FFF3E0; color: #E65100; }
+.question-text { font-size: 1rem; font-weight: 600; margin: 12px 0; line-height: 1.5; }
+
+.choices { display: flex; flex-direction: column; gap: 8px; }
+.choice-btn {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border: 2px solid #E0E0F0; border-radius: 12px;
+  background: white; cursor: pointer; transition: all 0.2s;
+  text-align: left; font-size: 0.9rem;
+}
+.choice-btn:hover { border-color: var(--primary-light); background: #F8F8FF; }
+.choice-btn.selected { border-color: var(--primary); background: #F0F0FF; }
+.choice-btn.correct { border-color: var(--success); background: #E8F5E9; }
+.choice-btn.wrong { border-color: var(--secondary); background: #FFEBEE; }
+.choice-label {
+  width: 28px; height: 28px; border-radius: 50%; background: #E8E8F0;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.8rem; flex-shrink: 0;
+}
+.choice-btn.selected .choice-label { background: var(--primary); color: white; }
+
+.sa-input {
+  width: 100%; min-height: 80px; padding: 12px; border: 2px solid #E0E0F0;
+  border-radius: 12px; font-size: 0.9rem; resize: vertical; outline: none;
+  font-family: inherit; transition: border 0.2s;
+}
+.sa-input:focus { border-color: var(--primary); }
+.sa-hint { font-size: 0.75rem; color: var(--text-light); margin-top: 4px; }
+
+/* Results */
+.result-summary {
+  text-align: center; padding: 24px; background: var(--card);
+  border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px;
+}
+.result-score { font-size: 3rem; font-weight: 800; color: var(--primary); }
+.result-earnings {
+  font-size: 1.5rem; font-weight: 700; color: #E6A817;
+  margin-top: 8px;
+}
+.result-earnings .yen { font-size: 2rem; }
+
+.answer-review { margin-top: 16px; }
+.answer-item {
+  background: var(--card); border-radius: 12px; padding: 16px;
+  margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.answer-item.correct-answer { border-left: 4px solid var(--success); }
+.answer-item.wrong-answer { border-left: 4px solid var(--secondary); }
+.answer-item.partial-answer { border-left: 4px solid var(--accent); }
+.answer-q { font-weight: 600; margin-bottom: 8px; font-size: 0.9rem; }
+.answer-your { font-size: 0.85rem; margin-bottom: 4px; }
+.answer-correct { font-size: 0.85rem; color: var(--success); margin-bottom: 4px; }
+.answer-explanation { font-size: 0.8rem; color: var(--text-light); margin-top: 8px; padding-top: 8px; border-top: 1px solid #EEE; }
+.score-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  font-size: 0.75rem; font-weight: 700; float: right;
+}
+.score-full { background: #E8F5E9; color: #2E7D32; }
+.score-partial { background: #FFF8E1; color: #F57F17; }
+.score-zero { background: #FFEBEE; color: #C62828; }
+
+/* History */
+.month-selector {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  margin-bottom: 16px;
+}
+.month-selector button { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 8px; }
+.month-selector .month-label { font-size: 1.1rem; font-weight: 700; min-width: 140px; text-align: center; }
+
+.calendar {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 16px;
+}
+.cal-header { text-align: center; font-size: 0.7rem; color: var(--text-light); font-weight: 600; padding: 4px; }
+.cal-day {
+  aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 8px; font-size: 0.75rem; position: relative;
+}
+.cal-day.has-quiz { background: #E8F5E9; cursor: pointer; }
+.cal-day.has-quiz:hover { background: #C8E6C9; }
+.cal-day .cal-date { font-weight: 600; }
+.cal-day .cal-earn { font-size: 0.55rem; color: var(--success); font-weight: 700; }
+.cal-day.today { border: 2px solid var(--primary); }
+.cal-day.empty { visibility: hidden; }
+
+.history-book-list { margin-top: 16px; }
+.history-book {
+  display: flex; align-items: center; gap: 12px; padding: 12px;
+  background: #F8F9FF; border-radius: 12px; margin-bottom: 8px;
+}
+.history-book .status-icon { font-size: 1.5rem; }
+.history-book .hb-info { flex: 1; }
+.history-book .hb-title { font-weight: 700; font-size: 0.9rem; }
+.history-book .hb-detail { font-size: 0.75rem; color: var(--text-light); }
+.history-book .hb-earn { font-weight: 800; color: #E6A817; }
+
+/* Settings */
+.setting-item {
+  display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px;
+}
+.setting-item label { font-weight: 600; font-size: 0.85rem; }
+.setting-item input {
+  padding: 10px 14px; border: 2px solid #E0E0F0; border-radius: 10px;
+  font-size: 0.9rem; outline: none;
+}
+.setting-item input:focus { border-color: var(--primary); }
+
+/* Loading */
+.loading-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(240,242,255,0.9); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; z-index: 500;
+}
+.loading-overlay.hidden { display: none; }
+.spinner {
+  width: 48px; height: 48px; border: 4px solid #E0E0F0;
+  border-top: 4px solid var(--primary); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { margin-top: 16px; color: var(--text-light); font-size: 0.9rem; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4); display: flex; align-items: center;
+  justify-content: center; z-index: 400; padding: 20px;
+}
+.modal-overlay.hidden { display: none; }
+.modal {
+  background: var(--card); border-radius: var(--radius); padding: 24px;
+  max-width: 400px; width: 100%; max-height: 80vh; overflow-y: auto;
+}
+.modal h3 { margin-bottom: 12px; }
+.modal p { font-size: 0.9rem; color: var(--text-light); margin-bottom: 16px; }
+.modal-actions { display: flex; gap: 8px; }
+.modal-actions .btn { flex: 1; }
+
+/* Confetti */
+@keyframes confetti-fall {
+  0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+.confetti {
+  position: fixed; width: 10px; height: 10px; z-index: 600;
+  animation: confetti-fall 3s ease-in forwards;
+}
+
+/* Book detail */
+.book-detail-header { text-align: center; margin-bottom: 20px; }
+.book-detail-cover {
+  width: 120px; height: 170px; border-radius: 12px; object-fit: cover;
+  box-shadow: var(--shadow); margin: 0 auto 12px;
+}
+.schedule-list { margin-top: 12px; }
+.schedule-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px; background: #F8F9FF; border-radius: 10px; margin-bottom: 8px;
+}
+.schedule-item.completed { background: #E8F5E9; }
+.schedule-item.current { background: #FFF8E1; border: 2px solid var(--accent); }
+.schedule-day { font-weight: 700; font-size: 0.9rem; }
+.schedule-chapters { font-size: 0.8rem; color: var(--text-light); }
+.schedule-score { font-weight: 700; font-size: 0.85rem; }
+.schedule-score.earned { color: var(--success); }
+
+/* User switcher */
+.user-switcher { margin-bottom: 16px; }
+.user-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 20px; border: 2px solid #E0E0F0;
+  background: white; cursor: pointer; font-size: 0.85rem; margin: 0 4px 4px 0;
+  transition: all 0.2s;
+}
+.user-chip.active { border-color: var(--primary); background: #F0F0FF; font-weight: 700; }
+.user-chip:hover { border-color: var(--primary-light); }
+
+/* Responsive */
+@media (max-width: 400px) {
+  .stats-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-value { font-size: 1.4rem; }
+  .earnings-value { font-size: 1.8rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Header -->
+  <div class="header" id="main-header" style="display:none">
+    <h1>Reading Quiz</h1>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="showView('settings')" title="Settings">⚙️</button>
+    </div>
+  </div>
+
+  <!-- WELCOME / REGISTER VIEW -->
+  <div id="view-welcome" class="view">
+    <div class="welcome-screen">
+      <div class="welcome-icon">📚</div>
+      <h2>Reading Quiz Challenge</h2>
+      <p>Read books, take quizzes, earn allowance!<br>Let's set up your profile first.</p>
+      <div class="form-group">
+        <label>Pick your avatar</label>
+        <div class="avatar-picker" id="avatar-picker">
+          <div class="avatar-option" data-avatar="🦊" onclick="pickAvatar(this)">🦊</div>
+          <div class="avatar-option" data-avatar="🐱" onclick="pickAvatar(this)">🐱</div>
+          <div class="avatar-option" data-avatar="🐶" onclick="pickAvatar(this)">🐶</div>
+          <div class="avatar-option" data-avatar="🐼" onclick="pickAvatar(this)">🐼</div>
+          <div class="avatar-option" data-avatar="🦁" onclick="pickAvatar(this)">🦁</div>
+          <div class="avatar-option" data-avatar="🐰" onclick="pickAvatar(this)">🐰</div>
+          <div class="avatar-option" data-avatar="🦄" onclick="pickAvatar(this)">🦄</div>
+          <div class="avatar-option" data-avatar="🐲" onclick="pickAvatar(this)">🐲</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Your nickname</label>
+        <input type="text" id="welcome-name" placeholder="Enter your name" style="text-align:center">
+      </div>
+      <button class="btn btn-primary" onclick="completeWelcome()" style="max-width:300px">Let's Go!</button>
+      <div id="existing-users" style="margin-top:24px;width:100%;max-width:300px"></div>
+    </div>
+  </div>
+
+  <!-- HOME VIEW -->
+  <div id="view-home" class="view">
+    <div class="profile-banner">
+      <div class="profile-avatar" id="home-avatar">🦊</div>
+      <div>
+        <div class="profile-greeting" id="home-greeting">Hi!</div>
+        <div class="profile-sub" id="home-sub">Keep reading!</div>
+      </div>
+    </div>
+
+    <div class="earnings-card">
+      <div class="earnings-label">This Month's Allowance</div>
+      <div class="earnings-value" id="monthly-earnings">¥0</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-books">0</div>
+        <div class="stat-label">Books Read</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-quizzes">0</div>
+        <div class="stat-label">Quizzes Taken</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Currently Reading</div>
+      <div id="active-books"></div>
+      <div style="margin-top:12px">
+        <button class="btn btn-primary" onclick="showView('addbook')">+ Add New Book</button>
+      </div>
+    </div>
+
+    <div class="card" id="today-quiz-card" style="display:none">
+      <div class="card-title">Today's Quiz</div>
+      <div id="today-quiz-info"></div>
+    </div>
+  </div>
+
+  <!-- ADD BOOK VIEW -->
+  <div id="view-addbook" class="view">
+    <div class="card">
+      <div class="card-title">Take a Photo of the Book Cover</div>
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+        <div class="icon">📸</div>
+        <p>Tap to select a photo<br>or drag & drop</p>
+      </div>
+      <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" onchange="handleImageUpload(event)">
+      <img id="preview-img" class="preview-img" style="display:none">
+      <div id="ai-detect-result" style="display:none">
+        <div class="book-form">
+          <div class="form-group">
+            <label>Book Title</label>
+            <input type="text" id="book-title-input" placeholder="AI will fill this in">
+          </div>
+          <div class="form-group">
+            <label>Author</label>
+            <input type="text" id="book-author-input" placeholder="AI will fill this in">
+          </div>
+          <div class="form-group">
+            <label>Total Chapters</label>
+            <input type="number" id="book-chapters-input" min="1" max="200" placeholder="AI will fill this in">
+          </div>
+          <div id="schedule-preview" style="margin-top:12px"></div>
+          <button class="btn btn-primary" onclick="registerBook()" style="margin-top:12px">Register This Book</button>
+        </div>
+      </div>
+      <button class="btn btn-secondary" onclick="showView('home')" style="margin-top:12px">← Back</button>
+    </div>
+  </div>
+
+  <!-- BOOK DETAIL VIEW -->
+  <div id="view-bookdetail" class="view">
+    <div class="card" id="book-detail-content"></div>
+    <button class="btn btn-secondary" onclick="showView('home')" style="margin-top:12px">← Back</button>
+  </div>
+
+  <!-- QUIZ VIEW -->
+  <div id="view-quiz" class="view">
+    <div class="quiz-header">
+      <div id="quiz-book-title" style="font-weight:700"></div>
+      <div class="quiz-progress-text" id="quiz-progress-text"></div>
+      <div class="quiz-progress-bar"><div class="quiz-progress-fill" id="quiz-progress-fill"></div></div>
+    </div>
+    <div id="quiz-questions"></div>
+    <button class="btn btn-success" id="submit-quiz-btn" onclick="submitQuiz()" disabled>
+      Submit Answers
+    </button>
+  </div>
+
+  <!-- RESULTS VIEW -->
+  <div id="view-results" class="view">
+    <div class="result-summary" id="result-summary"></div>
+    <div class="answer-review" id="answer-review"></div>
+    <button class="btn btn-primary" onclick="showView('home')" style="margin-top:16px">Back to Home</button>
+  </div>
+
+  <!-- HISTORY VIEW -->
+  <div id="view-history" class="view">
+    <div class="card">
+      <div class="card-title">Calendar</div>
+      <div class="month-selector">
+        <button onclick="changeMonth(-1)">◀</button>
+        <div class="month-label" id="month-label"></div>
+        <button onclick="changeMonth(1)">▶</button>
+      </div>
+      <div class="calendar" id="calendar"></div>
+      <div style="text-align:center;margin-top:8px">
+        <span style="font-size:0.85rem;color:var(--text-light)">Monthly Total: </span>
+        <span style="font-size:1.2rem;font-weight:800;color:#E6A817" id="cal-month-total">¥0</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">All-Time Earnings</div>
+      <div id="monthly-summary"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Reading Log</div>
+      <div id="history-book-list" class="history-book-list"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS VIEW -->
+  <div id="view-settings" class="view">
+    <div class="card">
+      <div class="card-title">Settings</div>
+      <div class="setting-item">
+        <label>Claude API Key</label>
+        <input type="password" id="api-key-input" placeholder="sk-ant-...">
+        <span style="font-size:0.75rem;color:var(--text-light)">Enter your Anthropic API key</span>
+      </div>
+      <div class="setting-item">
+        <label>Yen per Point</label>
+        <input type="number" id="yen-per-point" value="25" min="1">
+      </div>
+      <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">Profile</div>
+      <div class="setting-item">
+        <label>Nickname</label>
+        <input type="text" id="settings-name-input">
+      </div>
+      <div class="setting-item">
+        <label>Avatar</label>
+        <div class="avatar-picker" id="settings-avatar-picker">
+          <div class="avatar-option" data-avatar="🦊" onclick="pickSettingsAvatar(this)">🦊</div>
+          <div class="avatar-option" data-avatar="🐱" onclick="pickSettingsAvatar(this)">🐱</div>
+          <div class="avatar-option" data-avatar="🐶" onclick="pickSettingsAvatar(this)">🐶</div>
+          <div class="avatar-option" data-avatar="🐼" onclick="pickSettingsAvatar(this)">🐼</div>
+          <div class="avatar-option" data-avatar="🦁" onclick="pickSettingsAvatar(this)">🦁</div>
+          <div class="avatar-option" data-avatar="🐰" onclick="pickSettingsAvatar(this)">🐰</div>
+          <div class="avatar-option" data-avatar="🦄" onclick="pickSettingsAvatar(this)">🦄</div>
+          <div class="avatar-option" data-avatar="🐲" onclick="pickSettingsAvatar(this)">🐲</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveProfile()">Update Profile</button>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">Switch User</div>
+      <div class="user-switcher" id="user-switcher"></div>
+      <button class="btn btn-secondary" onclick="showView('welcome')" style="margin-top:8px">+ Add New User</button>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">Data</div>
+      <button class="btn btn-danger" onclick="confirmReset()">Reset All Data</button>
+    </div>
+    <button class="btn btn-secondary" onclick="showView('home')" style="margin-top:12px">← Back</button>
+  </div>
+</div>
+
+<!-- Bottom Navigation -->
+<nav class="nav" id="main-nav" style="display:none">
+  <div class="nav-inner">
+    <button class="nav-btn active" data-view="home" onclick="showView('home')">
+      <span class="nav-icon">🏠</span>Home
+    </button>
+    <button class="nav-btn" data-view="addbook" onclick="showView('addbook')">
+      <span class="nav-icon">📷</span>Add Book
+    </button>
+    <button class="nav-btn" data-view="history" onclick="showView('history')">
+      <span class="nav-icon">📅</span>History
+    </button>
+    <button class="nav-btn" data-view="settings" onclick="showView('settings')">
+      <span class="nav-icon">⚙️</span>Settings
+    </button>
+  </div>
+</nav>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay hidden" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">AI is thinking...</div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay hidden" id="modal">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<script>
+// ============================================================
+// DATA STORE (multi-user)
+// ============================================================
+const STORAGE_KEY = 'reading_quiz_app';
+
+function loadAppData() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultAppData();
+  } catch { return defaultAppData(); }
+}
+
+function defaultAppData() {
+  return {
+    currentUserId: null,
+    users: [],       // [{ id, name, avatar, createdAt }]
+    settings: { apiKey: '', yenPerPoint: 25 },
+    // Per-user data keyed by userId
+    userData: {}     // { [userId]: { books: [], quizResults: [] } }
+  };
+}
+
+function saveAppData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(APP));
+}
+
+// Migrate old single-user data
+function migrateOldData() {
+  const old = localStorage.getItem('reading_quiz_data');
+  if (!old) return;
+  try {
+    const data = JSON.parse(old);
+    if (data.books && data.books.length > 0) {
+      const userId = 'user_migrated';
+      APP.users.push({ id: userId, name: data.settings?.childName || 'Reader', avatar: '🦊', createdAt: new Date().toISOString() });
+      APP.userData[userId] = { books: data.books, quizResults: data.quizResults || [] };
+      if (data.settings?.apiKey) APP.settings.apiKey = data.settings.apiKey;
+      if (data.settings?.yenPerPoint) APP.settings.yenPerPoint = data.settings.yenPerPoint;
+      APP.currentUserId = userId;
+      saveAppData();
+    }
+    localStorage.removeItem('reading_quiz_data');
+  } catch {}
+}
+
+let APP = loadAppData();
+migrateOldData();
+
+function currentUser() { return APP.users.find(u => u.id === APP.currentUserId); }
+function currentData() { return APP.userData[APP.currentUserId] || { books: [], quizResults: [] }; }
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name)?.classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === name);
+  });
+
+  const isAppView = ['home','addbook','bookdetail','quiz','results','history','settings'].includes(name);
+  const isWelcome = name === 'welcome';
+  document.getElementById('main-header').style.display = (isAppView && !isWelcome) ? 'flex' : 'none';
+  document.getElementById('main-nav').style.display = (isAppView && name !== 'welcome') ? 'flex' : 'none';
+
+  if (name === 'home') renderHome();
+  if (name === 'history') renderHistory();
+  if (name === 'settings') renderSettings();
+  if (name === 'addbook') resetAddBook();
+  if (name === 'welcome') renderWelcome();
+  window.scrollTo(0, 0);
+}
+
+// ============================================================
+// WELCOME / USER REGISTRATION
+// ============================================================
+let selectedAvatar = '🦊';
+
+function pickAvatar(el) {
+  document.querySelectorAll('#avatar-picker .avatar-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedAvatar = el.dataset.avatar;
+}
+
+function renderWelcome() {
+  // Show existing users if any
+  const el = document.getElementById('existing-users');
+  if (APP.users.length > 0) {
+    el.innerHTML = `<p style="font-size:0.85rem;color:var(--text-light);margin-bottom:8px">Or sign in as:</p>` +
+      APP.users.map(u => `<button class="user-chip" onclick="switchUser('${u.id}')">${u.avatar} ${esc(u.name)}</button>`).join('');
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+function completeWelcome() {
+  const name = document.getElementById('welcome-name').value.trim();
+  if (!name) { alert('Please enter your nickname!'); return; }
+
+  const userId = 'user_' + Date.now();
+  APP.users.push({ id: userId, name, avatar: selectedAvatar, createdAt: new Date().toISOString() });
+  APP.userData[userId] = { books: [], quizResults: [] };
+  APP.currentUserId = userId;
+  saveAppData();
+  showView('home');
+}
+
+function switchUser(userId) {
+  APP.currentUserId = userId;
+  saveAppData();
+  showView('home');
+}
+
+// ============================================================
+// HOME
+// ============================================================
+function renderHome() {
+  const user = currentUser();
+  if (!user) { showView('welcome'); return; }
+  const data = currentData();
+
+  document.getElementById('home-avatar').textContent = user.avatar;
+  document.getElementById('home-greeting').textContent = `Hi, ${user.name}!`;
+
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const monthEarnings = calcMonthEarnings(ym);
+  document.getElementById('monthly-earnings').textContent = `¥${monthEarnings.toLocaleString()}`;
+
+  const totalAllTime = data.quizResults.reduce((s, r) => s + (r.earnings || 0), 0);
+  document.getElementById('home-sub').textContent = `Total earned: ¥${totalAllTime.toLocaleString()}`;
+
+  const completedBooks = data.books.filter(b => b.status === 'completed').length;
+  document.getElementById('stat-books').textContent = completedBooks;
+  document.getElementById('stat-quizzes').textContent = data.quizResults.length;
+
+  // Active books
+  const activeBooks = data.books.filter(b => b.status === 'in_progress');
+  const container = document.getElementById('active-books');
+  if (activeBooks.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-light);font-size:0.85rem;text-align:center;padding:16px">No books registered yet</p>';
+  } else {
+    container.innerHTML = activeBooks.map(b => {
+      const done = b.quizSchedule.filter(s => s.completed).length;
+      const total = b.quizSchedule.length;
+      const pct = Math.round(done / total * 100);
+      return `<div class="book-item" onclick="showBookDetail('${b.id}')">
+        ${b.coverImage ? `<img class="book-cover-thumb" src="${b.coverImage}">` : `<div class="book-cover-thumb placeholder">📕</div>`}
+        <div class="book-info">
+          <div class="book-title">${esc(b.title)}</div>
+          <div class="book-author">${esc(b.author)}</div>
+          <div class="book-progress">
+            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+            <div class="progress-text">${done}/${total} completed (${pct}%)</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Today's quiz
+  const todayCard = document.getElementById('today-quiz-card');
+  const todayQuiz = findTodayQuiz();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const alreadyTakenToday = currentData().quizResults.some(r => r.date === todayStr);
+
+  if (alreadyTakenToday) {
+    todayCard.style.display = 'block';
+    document.getElementById('today-quiz-info').innerHTML = `
+      <p style="text-align:center;color:var(--success);font-weight:600">
+        ✅ Great job! You already completed today's quiz.
+      </p>
+      <p style="text-align:center;font-size:0.85rem;color:var(--text-light);margin-top:8px">
+        Come back tomorrow for the next one!
+      </p>`;
+  } else if (todayQuiz) {
+    todayCard.style.display = 'block';
+    document.getElementById('today-quiz-info').innerHTML = `
+      <p style="margin-bottom:8px"><strong>${esc(todayQuiz.book.title)}</strong></p>
+      <p style="font-size:0.85rem;color:var(--text-light)">
+        Chapters ${todayQuiz.schedule.chapStart} - ${todayQuiz.schedule.chapEnd}
+      </p>
+      <button class="btn btn-success" onclick="startQuiz('${todayQuiz.book.id}', ${todayQuiz.dayIndex})" style="margin-top:12px">
+        Start Quiz
+      </button>`;
+  } else {
+    todayCard.style.display = 'none';
+  }
+}
+
+function findTodayQuiz() {
+  const data = currentData();
+  for (const book of data.books) {
+    if (book.status !== 'in_progress') continue;
+    for (let i = 0; i < book.quizSchedule.length; i++) {
+      if (!book.quizSchedule[i].completed) {
+        return { book, schedule: book.quizSchedule[i], dayIndex: i };
+      }
+    }
+  }
+  return null;
+}
+
+function calcMonthEarnings(ym) {
+  return currentData().quizResults
+    .filter(r => r.date.startsWith(ym))
+    .reduce((sum, r) => sum + (r.earnings || 0), 0);
+}
+
+// ============================================================
+// ADD BOOK
+// ============================================================
+let uploadedImageBase64 = null;
+
+function resetAddBook() {
+  document.getElementById('preview-img').style.display = 'none';
+  document.getElementById('ai-detect-result').style.display = 'none';
+  document.getElementById('upload-zone').style.display = 'block';
+  uploadedImageBase64 = null;
+}
+
+// Drag & drop
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) processImage(e.dataTransfer.files[0]);
+});
+
+function handleImageUpload(e) {
+  if (e.target.files[0]) processImage(e.target.files[0]);
+}
+
+function processImage(file) {
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const dataUrl = ev.target.result;
+    uploadedImageBase64 = dataUrl.split(',')[1];
+    const img = document.getElementById('preview-img');
+    img.src = dataUrl;
+    img.style.display = 'block';
+    document.getElementById('upload-zone').style.display = 'none';
+    await detectBook();
+  };
+  reader.readAsDataURL(file);
+}
+
+async function detectBook() {
+  if (!APP.settings.apiKey) {
+    alert('Please enter your API key in Settings first.');
+    showView('settings');
+    return;
+  }
+  showLoading('AI is recognizing the book...');
+  try {
+    const resp = await callClaude([
+      { role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: uploadedImageBase64 }},
+        { type: 'text', text: `Identify this book from the cover image. Return the following as JSON only (no other text):
+{
+  "title": "Book title",
+  "author": "Author name",
+  "totalChapters": estimated number of chapters (number),
+  "language": "language code (en/ja/ko/zh etc)",
+  "summary": "1-2 sentence summary"
+}
+If chapter count is unknown, estimate based on similar books.
+Detect the language from the cover text (English book = "en", Japanese = "ja", Korean = "ko").`
+        }
+      ]}
+    ]);
+    const json = extractJSON(resp);
+    document.getElementById('book-title-input').value = json.title || '';
+    document.getElementById('book-author-input').value = json.author || '';
+    document.getElementById('book-chapters-input').value = json.totalChapters || 20;
+    window._detectedLanguage = json.language || 'en';
+    updateSchedulePreview();
+    document.getElementById('ai-detect-result').style.display = 'block';
+  } catch (e) {
+    alert('Failed to recognize book: ' + e.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+document.getElementById('book-chapters-input')?.addEventListener('input', updateSchedulePreview);
+
+function updateSchedulePreview() {
+  const total = parseInt(document.getElementById('book-chapters-input').value) || 0;
+  const groups = splitChapters(total);
+  const el = document.getElementById('schedule-preview');
+  if (groups.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `<p style="font-size:0.85rem;font-weight:600;margin-bottom:8px">Quiz Schedule (${groups.length} days)</p>` +
+    groups.map((g, i) => `<div class="schedule-item">
+      <div><span class="schedule-day">Day ${i+1}</span>
+      <span class="schedule-chapters">Ch. ${g.start}-${g.end} (${g.end - g.start + 1} chapters)</span></div>
+    </div>`).join('');
+}
+
+function splitChapters(total) {
+  if (total <= 0) return [];
+  if (total <= 10) return [{ start: 1, end: total }];
+  const remainder = total % 10;
+  const fullGroups = Math.floor(total / 10);
+  const groups = [];
+  let cursor = 1;
+
+  if (remainder === 0) {
+    for (let i = 0; i < fullGroups; i++) {
+      groups.push({ start: cursor, end: cursor + 9 });
+      cursor += 10;
+    }
+  } else if (remainder < 5) {
+    for (let i = 0; i < fullGroups - 1; i++) {
+      groups.push({ start: cursor, end: cursor + 9 });
+      cursor += 10;
+    }
+    groups.push({ start: cursor, end: total });
+  } else {
+    for (let i = 0; i < fullGroups; i++) {
+      groups.push({ start: cursor, end: cursor + 9 });
+      cursor += 10;
+    }
+    groups.push({ start: cursor, end: total });
+  }
+  return groups;
+}
+
+function registerBook() {
+  const title = document.getElementById('book-title-input').value.trim();
+  const author = document.getElementById('book-author-input').value.trim();
+  const chapters = parseInt(document.getElementById('book-chapters-input').value);
+  if (!title || !chapters) { alert('Please enter the title and chapter count.'); return; }
+
+  const groups = splitChapters(chapters);
+  const book = {
+    id: 'bk_' + Date.now(),
+    title, author, totalChapters: chapters,
+    language: window._detectedLanguage || 'en',
+    coverImage: uploadedImageBase64 ? document.getElementById('preview-img').src : null,
+    quizSchedule: groups.map((g, i) => ({
+      day: i + 1,
+      chapStart: g.start,
+      chapEnd: g.end,
+      chaptersLabel: `${g.start}-${g.end}`,
+      completed: false,
+      score: null,
+      maxScore: null,
+      date: null
+    })),
+    addedDate: new Date().toISOString().slice(0, 10),
+    status: 'in_progress'
+  };
+  currentData().books.push(book);
+  saveAppData();
+  showView('home');
+}
+
+// ============================================================
+// BOOK DETAIL
+// ============================================================
+function showBookDetail(bookId) {
+  const book = currentData().books.find(b => b.id === bookId);
+  if (!book) return;
+  const el = document.getElementById('book-detail-content');
+  const ypp = APP.settings.yenPerPoint || 25;
+
+  el.innerHTML = `
+    <div class="book-detail-header">
+      ${book.coverImage ? `<img class="book-detail-cover" src="${book.coverImage}">` : ''}
+      <h2>${esc(book.title)}</h2>
+      <p style="color:var(--text-light)">${esc(book.author)} / ${book.totalChapters} chapters</p>
+      ${book.attempt > 1 ? `<p style="color:var(--primary);font-weight:600;font-size:0.85rem;margin-top:4px">Attempt #${book.attempt}</p>` : ''}
+    </div>
+    <div class="card-title">Quiz Schedule</div>
+    <div class="schedule-list">
+      ${book.quizSchedule.map((s, i) => {
+        const cls = s.completed ? 'completed' : (i === book.quizSchedule.findIndex(x => !x.completed) ? 'current' : '');
+        return `<div class="schedule-item ${cls}">
+          <div>
+            <div class="schedule-day">${s.completed ? '✅' : cls === 'current' ? '🎯' : '⬜'} Day ${s.day}</div>
+            <div class="schedule-chapters">Ch. ${s.chapStart}-${s.chapEnd}</div>
+          </div>
+          <div>
+            ${s.completed ? `<div class="schedule-score earned">${s.score}/${s.maxScore} pts<br>¥${Math.round(s.score * ypp).toLocaleString()}</div>` :
+              cls === 'current' ? `<button class="btn btn-success btn-sm" onclick="startQuiz('${book.id}', ${i})">Start</button>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${book.status === 'in_progress' ? `<button class="btn btn-danger btn-sm" onclick="deleteBook('${book.id}')" style="margin-top:16px">Delete This Book</button>` : ''}
+    ${book.status === 'completed' ? renderRechallengeSection(book) : ''}
+  `;
+  showView('bookdetail');
+}
+
+function renderRechallengeSection(book) {
+  const completedDate = book.quizSchedule
+    .filter(s => s.date).map(s => s.date).sort().pop();
+  if (!completedDate) return '';
+
+  const threeMonthsLater = new Date(completedDate);
+  threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
+  const now = new Date();
+  const canRechallenge = now >= threeMonthsLater;
+
+  const prevAttempt = book.attempt || 1;
+  const prevTotalScore = book.quizSchedule.reduce((s, q) => s + (q.score || 0), 0);
+  const ypp = APP.settings.yenPerPoint || 25;
+
+  if (canRechallenge) {
+    return `<div class="card" style="margin-top:16px;background:linear-gradient(135deg,#F0F0FF,#E8E8FF)">
+      <div class="card-title">🔄 Rechallenge Available!</div>
+      <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:8px">
+        It's been 3 months since you finished this book. You can take all quizzes again!
+      </p>
+      <p style="font-size:0.85rem;margin-bottom:12px">
+        Previous score: <strong>${prevTotalScore} pts</strong> (Attempt #${prevAttempt})<br>
+        You'll earn ¥${ypp} for each point you score <em>above</em> your previous total.
+      </p>
+      <button class="btn btn-primary" onclick="startRechallenge('${book.id}')">Start Rechallenge</button>
+    </div>`;
+  } else {
+    const daysLeft = Math.ceil((threeMonthsLater - now) / (1000*60*60*24));
+    return `<div style="margin-top:16px;padding:12px;background:#F8F9FF;border-radius:12px;text-align:center">
+      <span style="font-size:0.85rem;color:var(--text-light)">
+        🔒 Rechallenge available in ${daysLeft} days
+      </span>
+    </div>`;
+  }
+}
+
+function startRechallenge(bookId) {
+  const data = currentData();
+  const book = data.books.find(b => b.id === bookId);
+  if (!book) return;
+
+  // Save previous attempt info
+  const prevTotalScore = book.quizSchedule.reduce((s, q) => s + (q.score || 0), 0);
+  book.previousAttemptScore = prevTotalScore;
+  book.attempt = (book.attempt || 1) + 1;
+
+  // Reset all quiz schedules
+  book.quizSchedule.forEach(s => {
+    s.completed = false;
+    s.score = null;
+    s.maxScore = null;
+    s.date = null;
+  });
+  book.status = 'in_progress';
+  saveAppData();
+  showBookDetail(bookId);
+}
+
+function deleteBook(bookId) {
+  if (!confirm('Delete this book and its quiz data?')) return;
+  const data = currentData();
+  data.books = data.books.filter(b => b.id !== bookId);
+  data.quizResults = data.quizResults.filter(r => r.bookId !== bookId);
+  saveAppData();
+  showView('home');
+}
+
+// ============================================================
+// QUIZ
+// ============================================================
+let currentQuiz = null;
+
+async function startQuiz(bookId, dayIndex) {
+  const book = currentData().books.find(b => b.id === bookId);
+  if (!book) return;
+  const schedule = book.quizSchedule[dayIndex];
+  if (schedule.completed) { alert('This quiz is already completed.'); return; }
+
+  // Limit: 1 quiz per day
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayQuizCount = currentData().quizResults.filter(r => r.date === todayStr).length;
+  if (todayQuizCount >= 1) {
+    alert("You've already taken a quiz today! Come back tomorrow for the next one.");
+    return;
+  }
+
+  if (!APP.settings.apiKey) { alert('Please set your API key first.'); showView('settings'); return; }
+
+  showLoading('AI is creating questions...');
+  try {
+    const lang = book.language || 'en';
+    const langInstructions = {
+      en: 'All questions, choices, and model answers MUST be written in English.',
+      ja: 'All questions, choices, and model answers MUST be written in Japanese (日本語).',
+      ko: 'All questions, choices, and model answers MUST be written in Korean (한국어).',
+      zh: 'All questions, choices, and model answers MUST be written in Chinese (中文).'
+    };
+    const saHint = {
+      en: '(Answer in at least 2 sentences)',
+      ja: '（2文以上で答えてください）',
+      ko: '(2문장 이상으로 답하세요)',
+      zh: '（请用至少2句话回答）'
+    };
+    const langNote = langInstructions[lang] || langInstructions.en;
+    const saNote = saHint[lang] || saHint.en;
+
+    const prompt = `You are a reading quiz creator.
+Create exactly 20 quiz questions about the book "${book.title}" by ${book.author}, chapters ${schedule.chapStart} to ${schedule.chapEnd}.
+
+**IMPORTANT: ${langNote}**
+
+**SCORING: The total must be exactly 20 points across all 20 questions.**
+
+Rules:
+- Mix multiple choice (multiple_choice) and short answer (short_answer) questions: ~14 MC, ~6 SA
+- Each question is worth 0.5, 1, 1.5, or 2 points based on difficulty:
+  - Very simple fact recall: 0.5 points
+  - Simple fact recall: 1 point
+  - Requires some thinking: 1.5 points
+  - Deep understanding needed: 2 points
+- The sum of all 20 questions' points MUST equal exactly 20
+- Short answer questions should end with "${saNote}"
+- Include model_answer for every question
+- Questions must be faithful to the book's content
+
+Return ONLY this JSON (no other text):
+{
+  "questions": [
+    {
+      "id": 1,
+      "type": "multiple_choice",
+      "question": "Question text",
+      "choices": ["A. Choice 1", "B. Choice 2", "C. Choice 3", "D. Choice 4"],
+      "correct": 0,
+      "model_answer": "Explanation of correct answer",
+      "points": 1
+    },
+    {
+      "id": 2,
+      "type": "short_answer",
+      "question": "Question text ${saNote}",
+      "model_answer": "Model answer",
+      "points": 1.5
+    }
+  ]
+}`;
+
+    const resp = await callClaude([{ role: 'user', content: prompt }]);
+    const quiz = extractJSON(resp);
+    if (!quiz.questions || quiz.questions.length === 0) throw new Error('Failed to generate questions');
+
+    currentQuiz = {
+      bookId, dayIndex, book, schedule,
+      questions: quiz.questions,
+      answers: new Array(quiz.questions.length).fill(null)
+    };
+    renderQuiz();
+    showView('quiz');
+  } catch (e) {
+    alert('Failed to create quiz: ' + e.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+function renderQuiz() {
+  const q = currentQuiz;
+  document.getElementById('quiz-book-title').textContent = `${q.book.title} (Ch. ${q.schedule.chapStart}-${q.schedule.chapEnd})`;
+  updateQuizProgress();
+
+  const container = document.getElementById('quiz-questions');
+  container.innerHTML = q.questions.map((question, qi) => {
+    const typeBadge = question.type === 'multiple_choice'
+      ? '<span class="question-type-badge badge-mc">MC</span>'
+      : '<span class="question-type-badge badge-sa">SA</span>';
+    return `<div class="question-card" id="q-${qi}">
+      <span class="question-number">Q${qi + 1}</span>
+      <span class="question-points">${question.points} pt${question.points !== 1 ? 's' : ''}</span>
+      ${typeBadge}
+      <div class="question-text">${esc(question.question)}</div>
+      ${question.type === 'multiple_choice' ? renderChoices(question, qi) : renderShortAnswer(qi)}
+    </div>`;
+  }).join('');
+
+  document.getElementById('submit-quiz-btn').disabled = false;
+}
+
+function renderChoices(question, qi) {
+  return `<div class="choices">${question.choices.map((c, ci) => {
+    const label = String.fromCharCode(65 + ci);
+    return `<button class="choice-btn" onclick="selectChoice(${qi}, ${ci})" id="choice-${qi}-${ci}">
+      <span class="choice-label">${label}</span>
+      <span>${esc(c.replace(/^[A-D]\.\s*/, ''))}</span>
+    </button>`;
+  }).join('')}</div>`;
+}
+
+function renderShortAnswer(qi) {
+  const lang = currentQuiz.book.language || 'en';
+  const ph = { en: 'Type your answer here...', ja: 'ここに回答を入力...', ko: '여기에 답변을 입력하세요...', zh: '在此输入答案...' }[lang] || 'Type your answer here...';
+  const hint = { en: 'Write at least 2 sentences', ja: '2文以上で詳しく答えてください', ko: '2문장 이상으로 자세히 답해주세요', zh: '请用至少2句话详细回答' }[lang] || '';
+  return `<textarea class="sa-input" id="sa-${qi}" placeholder="${ph}"
+    oninput="updateAnswer(${qi}, this.value)"></textarea>
+    <div class="sa-hint">💡 ${hint}</div>`;
+}
+
+function selectChoice(qi, ci) {
+  currentQuiz.answers[qi] = ci;
+  document.querySelectorAll(`#q-${qi} .choice-btn`).forEach((btn, i) => {
+    btn.classList.toggle('selected', i === ci);
+  });
+  updateQuizProgress();
+}
+
+function updateAnswer(qi, val) {
+  currentQuiz.answers[qi] = val;
+  updateQuizProgress();
+}
+
+function updateQuizProgress() {
+  const answered = currentQuiz.answers.filter(a => a !== null && a !== '').length;
+  const total = currentQuiz.questions.length;
+  document.getElementById('quiz-progress-text').textContent = `${answered}/${total} answered`;
+  document.getElementById('quiz-progress-fill').style.width = `${answered / total * 100}%`;
+}
+
+// ============================================================
+// SUBMIT & GRADE
+// ============================================================
+async function submitQuiz() {
+  const unanswered = currentQuiz.answers.filter(a => a === null || a === '').length;
+  if (unanswered > 0) {
+    if (!confirm(`You have ${unanswered} unanswered questions. Submit anyway?`)) return;
+  }
+
+  document.getElementById('submit-quiz-btn').disabled = true;
+  showLoading('AI is grading...');
+
+  try {
+    const results = [];
+    const saQuestions = [];
+
+    for (let i = 0; i < currentQuiz.questions.length; i++) {
+      const q = currentQuiz.questions[i];
+      const a = currentQuiz.answers[i];
+      if (q.type === 'multiple_choice') {
+        const correct = a === q.correct;
+        results.push({
+          qi: i, score: correct ? q.points : 0, maxScore: q.points,
+          yourAnswer: a !== null ? q.choices[a] : '(no answer)',
+          correctAnswer: q.choices[q.correct],
+          explanation: q.model_answer, correct
+        });
+      } else {
+        saQuestions.push({ qi: i, question: q.question, answer: a || '(no answer)', model: q.model_answer, points: q.points });
+      }
+    }
+
+    // Grade short answers with AI
+    if (saQuestions.length > 0) {
+      const gradeLang = currentQuiz.book.language || 'en';
+      const gradeLangNote = {
+        en: 'Provide all feedback in English.',
+        ja: 'Provide all feedback in Japanese.',
+        ko: 'Provide all feedback in Korean.',
+        zh: 'Provide all feedback in Chinese.'
+      }[gradeLang] || 'Provide all feedback in English.';
+
+      const gradePrompt = `Grade the following short-answer responses. Each question has a max of 0.5 to 2 points.
+Partial credit can be given in 0.5 increments. Give credit for detailed 2+ sentence answers.
+${gradeLangNote}
+
+${saQuestions.map(sq => `---
+Q${sq.qi + 1} (${sq.points} points max)
+Question: ${sq.question}
+Student's answer: ${sq.answer}
+Model answer: ${sq.model}
+---`).join('\n')}
+
+Return ONLY this JSON:
+{
+  "grades": [
+    { "qi": question_number, "score": points_earned, "feedback": "grading comment" }
+  ]
+}`;
+
+      const gradeResp = await callClaude([{ role: 'user', content: gradePrompt }]);
+      const grades = extractJSON(gradeResp);
+
+      for (const g of grades.grades) {
+        const sq = saQuestions.find(x => x.qi === g.qi);
+        if (sq) {
+          results.push({
+            qi: g.qi, score: Math.min(g.score, sq.points), maxScore: sq.points,
+            yourAnswer: sq.answer, correctAnswer: sq.model,
+            explanation: g.feedback,
+            correct: g.score >= sq.points
+          });
+        }
+      }
+    }
+
+    results.sort((a, b) => a.qi - b.qi);
+
+    const totalScore = results.reduce((s, r) => s + r.score, 0);
+    const maxScore = results.reduce((s, r) => s + r.maxScore, 0);
+    const ypp = APP.settings.yenPerPoint || 25;
+
+    // Save result
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const data = currentData();
+    const book = data.books.find(b => b.id === currentQuiz.bookId);
+
+    // Calculate earnings (rechallenge: only earn for improvement over previous attempt)
+    let earnings = Math.round(totalScore * ypp);
+    let isRechallenge = false;
+    if (book && book.attempt > 1) {
+      isRechallenge = true;
+      // Tentative earnings; will be recalculated when all quizzes are done
+      earnings = Math.round(totalScore * ypp);
+    }
+
+    const quizResult = {
+      bookId: currentQuiz.bookId,
+      date: dateStr,
+      dayIndex: currentQuiz.dayIndex,
+      chapters: currentQuiz.schedule.chaptersLabel,
+      totalScore, maxScore, earnings, results,
+      attempt: book ? (book.attempt || 1) : 1
+    };
+    data.quizResults.push(quizResult);
+
+    // Update book schedule
+    if (book) {
+      book.quizSchedule[currentQuiz.dayIndex].completed = true;
+      book.quizSchedule[currentQuiz.dayIndex].score = totalScore;
+      book.quizSchedule[currentQuiz.dayIndex].maxScore = maxScore;
+      book.quizSchedule[currentQuiz.dayIndex].date = dateStr;
+      if (book.quizSchedule.every(s => s.completed)) {
+        book.status = 'completed';
+        // For rechallenge: recalculate all earnings for this attempt
+        if (book.attempt > 1) {
+          const newTotal = book.quizSchedule.reduce((s, q) => s + (q.score || 0), 0);
+          const improvement = Math.max(0, newTotal - (book.previousAttemptScore || 0));
+          const rechallengeEarnings = Math.round(improvement * ypp);
+          // Update all quiz results for this attempt
+          const attemptResults = data.quizResults.filter(
+            r => r.bookId === book.id && r.attempt === book.attempt
+          );
+          // Distribute rechallenge earnings proportionally
+          const attemptTotalScore = attemptResults.reduce((s, r) => s + r.totalScore, 0);
+          attemptResults.forEach(r => {
+            r.earnings = attemptTotalScore > 0
+              ? Math.round(rechallengeEarnings * r.totalScore / attemptTotalScore)
+              : 0;
+          });
+          // Also update the current result's earnings for display
+          earnings = quizResult.earnings;
+        }
+      }
+    }
+    saveAppData();
+
+    // Show rechallenge info in results if applicable
+    renderResults(totalScore, maxScore, earnings, results, isRechallenge, book);
+    showView('results');
+    if (totalScore >= maxScore * 0.8) launchConfetti();
+
+  } catch (e) {
+    alert('Grading failed: ' + e.message);
+    document.getElementById('submit-quiz-btn').disabled = false;
+  } finally {
+    hideLoading();
+  }
+}
+
+function renderResults(totalScore, maxScore, earnings, results, isRechallenge = false, book = null) {
+  const pct = Math.round(totalScore / maxScore * 100);
+  let emoji = pct >= 90 ? '🏆' : pct >= 70 ? '🎉' : pct >= 50 ? '👍' : '📖';
+  const user = currentUser();
+  const name = user ? user.name : 'You';
+
+  let rechallengeNote = '';
+  if (isRechallenge && book) {
+    const allDone = book.quizSchedule.every(s => s.completed);
+    if (allDone) {
+      const newTotal = book.quizSchedule.reduce((s, q) => s + (q.score || 0), 0);
+      const prevTotal = book.previousAttemptScore || 0;
+      const improvement = Math.max(0, newTotal - prevTotal);
+      const ypp = APP.settings.yenPerPoint || 25;
+      const bonusEarnings = improvement * ypp;
+      rechallengeNote = `<div style="margin-top:12px;padding:12px;background:#FFF8E1;border-radius:12px;font-size:0.85rem">
+        🔄 <strong>Rechallenge Complete!</strong> (Attempt #${book.attempt})<br>
+        Previous total: ${prevTotal} pts → New total: ${newTotal} pts<br>
+        Improvement: <strong>+${improvement} pts</strong><br>
+        Bonus earned: <strong>¥${bonusEarnings.toLocaleString()}</strong>
+      </div>`;
+    } else {
+      rechallengeNote = `<div style="margin-top:8px;font-size:0.8rem;color:var(--text-light)">
+        🔄 Rechallenge Attempt #${book.attempt} — earnings calculated when all quizzes are done
+      </div>`;
+    }
+  }
+
+  document.getElementById('result-summary').innerHTML = `
+    <div style="font-size:3rem;margin-bottom:8px">${emoji}</div>
+    <div style="font-size:0.9rem;color:var(--text-light)">${esc(name)}'s Results</div>
+    <div class="result-score">${totalScore} / ${maxScore}</div>
+    <div style="font-size:0.9rem;color:var(--text-light)">(${pct}%)</div>
+    <div class="result-earnings">
+      Allowance Earned: <span class="yen">¥${earnings.toLocaleString()}</span>
+    </div>
+    ${rechallengeNote}
+  `;
+
+  document.getElementById('answer-review').innerHTML =
+    '<div class="card-title" style="margin-bottom:12px">Answer Review</div>' +
+    results.map((r, i) => {
+      const q = currentQuiz.questions[r.qi];
+      const cls = r.score >= r.maxScore ? 'correct-answer' : r.score > 0 ? 'partial-answer' : 'wrong-answer';
+      const scoreCls = r.score >= r.maxScore ? 'score-full' : r.score > 0 ? 'score-partial' : 'score-zero';
+      return `<div class="answer-item ${cls}">
+        <div class="answer-q">
+          Q${r.qi + 1}. ${esc(q.question)}
+          <span class="score-badge ${scoreCls}">${r.score}/${r.maxScore} pts</span>
+        </div>
+        <div class="answer-your">📝 Your answer: ${esc(String(r.yourAnswer))}</div>
+        <div class="answer-correct">✅ Correct answer: ${esc(String(r.correctAnswer))}</div>
+        ${r.explanation ? `<div class="answer-explanation">💡 ${esc(r.explanation)}</div>` : ''}
+      </div>`;
+    }).join('');
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+let historyMonth = new Date();
+
+function renderHistory() {
+  renderCalendar();
+  renderMonthlySummary();
+  renderBookHistory();
+}
+
+function changeMonth(delta) {
+  historyMonth.setMonth(historyMonth.getMonth() + delta);
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const y = historyMonth.getFullYear();
+  const m = historyMonth.getMonth();
+  const ym = `${y}-${String(m + 1).padStart(2, '0')}`;
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('month-label').textContent = `${monthNames[m]} ${y}`;
+
+  const firstDay = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const today = new Date();
+
+  const dayEarnings = {};
+  currentData().quizResults.filter(r => r.date.startsWith(ym)).forEach(r => {
+    const day = parseInt(r.date.slice(8));
+    dayEarnings[day] = (dayEarnings[day] || 0) + r.earnings;
+  });
+
+  const headers = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  let html = headers.map(h => `<div class="cal-header">${h}</div>`).join('');
+
+  for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = y === today.getFullYear() && m === today.getMonth() && d === today.getDate();
+    const hasQuiz = dayEarnings[d] > 0;
+    html += `<div class="cal-day ${isToday ? 'today' : ''} ${hasQuiz ? 'has-quiz' : ''}">
+      <span class="cal-date">${d}</span>
+      ${hasQuiz ? `<span class="cal-earn">¥${dayEarnings[d]}</span>` : ''}
+    </div>`;
+  }
+  document.getElementById('calendar').innerHTML = html;
+  document.getElementById('cal-month-total').textContent = `¥${calcMonthEarnings(ym).toLocaleString()}`;
+}
+
+function renderMonthlySummary() {
+  const data = currentData();
+  const monthMap = {};
+  data.quizResults.forEach(r => {
+    const ym = r.date.slice(0, 7);
+    monthMap[ym] = (monthMap[ym] || 0) + (r.earnings || 0);
+  });
+  const months = Object.keys(monthMap).sort().reverse();
+  const el = document.getElementById('monthly-summary');
+  if (months.length === 0) {
+    el.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:8px;font-size:0.85rem">No earnings yet</p>';
+    return;
+  }
+  const totalAll = Object.values(monthMap).reduce((a, b) => a + b, 0);
+  el.innerHTML = months.map(ym => {
+    const [yr, mo] = ym.split('-');
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #EEE">
+      <span>${monthNames[parseInt(mo)-1]} ${yr}</span>
+      <span style="font-weight:700;color:#E6A817">¥${monthMap[ym].toLocaleString()}</span>
+    </div>`;
+  }).join('') + `<div style="display:flex;justify-content:space-between;padding:12px 0;font-weight:800">
+    <span>Grand Total</span>
+    <span style="color:#E6A817;font-size:1.1rem">¥${totalAll.toLocaleString()}</span>
+  </div>`;
+}
+
+function renderBookHistory() {
+  const data = currentData();
+  const container = document.getElementById('history-book-list');
+  if (data.books.length === 0) {
+    container.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:16px">No records yet</p>';
+    return;
+  }
+  container.innerHTML = data.books.map(b => {
+    const totalEarned = data.quizResults.filter(r => r.bookId === b.id).reduce((s, r) => s + r.earnings, 0);
+    const done = b.quizSchedule.filter(s => s.completed).length;
+    return `<div class="history-book" onclick="showBookDetail('${b.id}')">
+      <div class="status-icon">${b.status === 'completed' ? '✅' : '📖'}</div>
+      <div class="hb-info">
+        <div class="hb-title">${esc(b.title)}</div>
+        <div class="hb-detail">${esc(b.author)} / ${done}/${b.quizSchedule.length} completed${b.attempt > 1 ? ` (Attempt #${b.attempt})` : ''}</div>
+      </div>
+      <div class="hb-earn">¥${totalEarned.toLocaleString()}</div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function renderSettings() {
+  document.getElementById('api-key-input').value = APP.settings.apiKey || '';
+  document.getElementById('yen-per-point').value = APP.settings.yenPerPoint || 25;
+
+  const user = currentUser();
+  if (user) {
+    document.getElementById('settings-name-input').value = user.name;
+    document.querySelectorAll('#settings-avatar-picker .avatar-option').forEach(o => {
+      o.classList.toggle('selected', o.dataset.avatar === user.avatar);
+    });
+  }
+
+  // User switcher
+  const switcher = document.getElementById('user-switcher');
+  switcher.innerHTML = APP.users.map(u =>
+    `<button class="user-chip ${u.id === APP.currentUserId ? 'active' : ''}" onclick="switchUser('${u.id}')">
+      ${u.avatar} ${esc(u.name)}
+    </button>`
+  ).join('');
+}
+
+let settingsAvatar = null;
+function pickSettingsAvatar(el) {
+  document.querySelectorAll('#settings-avatar-picker .avatar-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  settingsAvatar = el.dataset.avatar;
+}
+
+function saveSettings() {
+  APP.settings.apiKey = document.getElementById('api-key-input').value.trim();
+  APP.settings.yenPerPoint = parseInt(document.getElementById('yen-per-point').value) || 50;
+  saveAppData();
+  alert('Settings saved!');
+}
+
+function saveProfile() {
+  const user = currentUser();
+  if (!user) return;
+  const name = document.getElementById('settings-name-input').value.trim();
+  if (name) user.name = name;
+  if (settingsAvatar) user.avatar = settingsAvatar;
+  saveAppData();
+  alert('Profile updated!');
+}
+
+function confirmReset() {
+  showModal('Reset All Data', 'This will delete ALL users and data. This cannot be undone.', [
+    { label: 'Cancel', cls: 'btn-secondary', action: hideModal },
+    { label: 'Delete All', cls: 'btn-danger', action: () => {
+      localStorage.removeItem(STORAGE_KEY);
+      APP = defaultAppData();
+      hideModal();
+      showView('welcome');
+    }}
+  ]);
+}
+
+// ============================================================
+// CLAUDE API
+// ============================================================
+async function callClaude(messages) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': APP.settings.apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8000,
+      messages
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API Error ${resp.status}`);
+  }
+  const data = await resp.json();
+  return data.content[0].text;
+}
+
+function extractJSON(text) {
+  const codeMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  const jsonStr = codeMatch ? codeMatch[1] : text;
+  try {
+    return JSON.parse(jsonStr.trim());
+  } catch {
+    const objMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (objMatch) return JSON.parse(objMatch[0]);
+    throw new Error('Failed to parse JSON response');
+  }
+}
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+function showLoading(text) {
+  document.getElementById('loading-text').textContent = text || 'AI is thinking...';
+  document.getElementById('loading').classList.remove('hidden');
+}
+function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
+
+function showModal(title, text, buttons) {
+  document.getElementById('modal-content').innerHTML = `
+    <h3>${title}</h3><p>${text}</p>
+    <div class="modal-actions">${buttons.map((b, i) =>
+      `<button class="btn ${b.cls}" onclick="window._modalActions[${i}]()">${b.label}</button>`
+    ).join('')}</div>`;
+  window._modalActions = buttons.map(b => b.action);
+  document.getElementById('modal').classList.remove('hidden');
+}
+function hideModal() { document.getElementById('modal').classList.add('hidden'); }
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function launchConfetti() {
+  const colors = ['#6C63FF', '#FF6B6B', '#FFD93D', '#4CAF50', '#FF9800'];
+  for (let i = 0; i < 40; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti';
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.background = colors[Math.floor(Math.random() * colors.length)];
+    el.style.animationDelay = Math.random() * 2 + 's';
+    el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    el.style.width = (6 + Math.random() * 8) + 'px';
+    el.style.height = (6 + Math.random() * 8) + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 5000);
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+if (APP.currentUserId && currentUser()) {
+  showView('home');
+} else {
+  showView('welcome');
+}
+</script>
+</body>
+</html>
