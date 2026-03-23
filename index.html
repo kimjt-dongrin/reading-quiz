@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reading Quiz Challenge</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 :root {
   --primary: #6C63FF;
@@ -380,6 +382,34 @@ body {
 .user-chip.active { border-color: var(--primary); background: #F0F0FF; font-weight: 700; }
 .user-chip:hover { border-color: var(--primary-light); }
 
+/* Sync status */
+.sync-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.75rem; padding: 6px 12px; border-radius: 8px;
+  margin-bottom: 12px;
+}
+.sync-status.synced { background: #E8F5E9; color: #2E7D32; }
+.sync-status.syncing { background: #FFF8E1; color: #F57F17; }
+.sync-status.offline { background: #F5F5F5; color: #9E9E9E; }
+.sync-status.error { background: #FFEBEE; color: #C62828; }
+.sync-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+.sync-status.synced .sync-dot { background: #4CAF50; }
+.sync-status.syncing .sync-dot { background: #FFC107; animation: pulse 1s infinite; }
+.sync-status.offline .sync-dot { background: #9E9E9E; }
+.sync-status.error .sync-dot { background: #F44336; }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+.family-code-display {
+  text-align: center; padding: 16px; background: #F8F9FF;
+  border-radius: 12px; margin: 12px 0;
+}
+.family-code-value {
+  font-size: 2rem; font-weight: 800; letter-spacing: 6px;
+  color: var(--primary); font-family: monospace;
+}
+
 /* Responsive */
 @media (max-width: 400px) {
   .stats-row { grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -429,6 +459,10 @@ body {
 
   <!-- HOME VIEW -->
   <div id="view-home" class="view">
+    <div class="sync-status offline" id="sync-status">
+      <span class="sync-dot"></span>
+      <span id="sync-text">Cloud sync off</span>
+    </div>
     <div class="profile-banner">
       <div class="profile-avatar" id="home-avatar">🦊</div>
       <div>
@@ -591,6 +625,34 @@ body {
       <button class="btn btn-secondary" onclick="showView('welcome')" style="margin-top:8px">+ Add New User</button>
     </div>
     <div class="card" style="margin-top:12px">
+      <div class="card-title">Cloud Sync</div>
+      <p style="font-size:0.8rem;color:var(--text-light);margin-bottom:12px">
+        Sync data across devices using a Family Code. Same code = same data everywhere.
+      </p>
+      <div id="cloud-sync-section">
+        <div class="setting-item">
+          <label>Family Code</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="family-code-input" placeholder="e.g. KIMFAM" maxlength="12"
+              style="text-transform:uppercase;letter-spacing:2px;font-weight:700;flex:1">
+            <button class="btn btn-primary btn-sm" onclick="connectCloud()" style="width:auto;white-space:nowrap">Connect</button>
+          </div>
+          <span style="font-size:0.7rem;color:var(--text-light)">Enter any code to create or join a family sync group</span>
+        </div>
+        <div id="cloud-connected-info" style="display:none">
+          <div class="family-code-display">
+            <div style="font-size:0.75rem;color:var(--text-light)">Your Family Code</div>
+            <div class="family-code-value" id="display-family-code"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-secondary btn-sm" onclick="syncNow()" style="flex:1">Sync Now</button>
+            <button class="btn btn-danger btn-sm" onclick="disconnectCloud()" style="flex:1">Disconnect</button>
+          </div>
+          <div style="font-size:0.7rem;color:var(--text-light);margin-top:8px;text-align:center" id="last-sync-time"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
       <div class="card-title">Data</div>
       <button class="btn btn-danger" onclick="confirmReset()">Reset All Data</button>
     </div>
@@ -643,14 +705,26 @@ function defaultAppData() {
   return {
     currentUserId: null,
     users: [],       // [{ id, name, avatar, createdAt }]
-    settings: { apiKey: '', yenPerPoint: 25 },
+    settings: { apiKey: '', yenPerPoint: 25, familyCode: '' },
     // Per-user data keyed by userId
-    userData: {}     // { [userId]: { books: [], quizResults: [] } }
+    userData: {},    // { [userId]: { books: [], quizResults: [] } }
+    lastSyncAt: null
   };
 }
 
 function saveAppData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(APP));
+  // Auto-sync to cloud if connected
+  if (APP.settings.familyCode && _db) {
+    debouncedCloudSave();
+  }
+}
+
+// Debounce cloud save to avoid excessive writes
+let _cloudSaveTimer = null;
+function debouncedCloudSave() {
+  clearTimeout(_cloudSaveTimer);
+  _cloudSaveTimer = setTimeout(() => saveToCloud(), 2000);
 }
 
 // Migrate old single-user data
@@ -1576,6 +1650,9 @@ function renderSettings() {
       ${u.avatar} ${esc(u.name)}
     </button>`
   ).join('');
+
+  // Cloud sync
+  renderSettingsSync();
 }
 
 let settingsAvatar = null;
@@ -1695,13 +1772,253 @@ function launchConfetti() {
 }
 
 // ============================================================
+// FIREBASE CLOUD SYNC
+// ============================================================
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBERICFBz0ysJMfkWqKBy3LQv5Sae7_T0w",
+  authDomain: "reading-quiz-sync.firebaseapp.com",
+  projectId: "reading-quiz-sync",
+  storageBucket: "reading-quiz-sync.firebasestorage.app",
+  messagingSenderId: "32939900989",
+  appId: "1:32939900989:web:d4d89b1972dadc45bc2a54",
+  measurementId: "G-1TGXFKRE0R"
+};
+
+let _db = null;
+let _unsubscribe = null;
+
+function initFirebase() {
+  try {
+    if (typeof firebase === 'undefined') { console.warn('Firebase SDK not loaded'); return false; }
+    if (!firebase.apps.length) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+    }
+    _db = firebase.firestore();
+    return true;
+  } catch (e) {
+    console.error('Firebase init failed:', e);
+    return false;
+  }
+}
+
+function updateSyncStatus(status, text) {
+  const el = document.getElementById('sync-status');
+  const txt = document.getElementById('sync-text');
+  if (!el) return;
+  el.className = 'sync-status ' + status;
+  txt.textContent = text;
+}
+
+async function connectCloud() {
+  const code = document.getElementById('family-code-input').value.trim().toUpperCase();
+  if (!code || code.length < 3) { alert('Please enter a code (at least 3 characters)'); return; }
+
+  if (!initFirebase()) {
+    alert('Cloud sync is not available. Firebase could not be loaded.');
+    return;
+  }
+
+  updateSyncStatus('syncing', 'Connecting...');
+  APP.settings.familyCode = code;
+
+  try {
+    // Check if cloud data exists
+    const doc = await _db.collection('families').doc(code).get();
+    if (doc.exists) {
+      // Cloud data exists - merge it
+      const cloudData = doc.data();
+      mergeCloudData(cloudData);
+      updateSyncStatus('synced', 'Connected & synced');
+    } else {
+      // First time - upload local data
+      await saveToCloud();
+      updateSyncStatus('synced', 'Connected (new sync)');
+    }
+    saveAppData_local(); // Save familyCode to localStorage without triggering cloud save loop
+    renderSettingsSync();
+    startRealtimeSync();
+  } catch (e) {
+    console.error('Connect failed:', e);
+    updateSyncStatus('error', 'Connection failed');
+    APP.settings.familyCode = '';
+    alert('Failed to connect: ' + e.message);
+  }
+}
+
+function disconnectCloud() {
+  if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
+  APP.settings.familyCode = '';
+  APP.lastSyncAt = null;
+  saveAppData_local();
+  updateSyncStatus('offline', 'Cloud sync off');
+  renderSettingsSync();
+}
+
+async function syncNow() {
+  if (!APP.settings.familyCode || !_db) return;
+  updateSyncStatus('syncing', 'Syncing...');
+  try {
+    await saveToCloud();
+    APP.lastSyncAt = new Date().toISOString();
+    saveAppData_local();
+    updateSyncStatus('synced', 'Synced just now');
+    renderSettingsSync();
+  } catch (e) {
+    updateSyncStatus('error', 'Sync failed');
+  }
+}
+
+async function saveToCloud() {
+  if (!APP.settings.familyCode || !_db) return;
+  const code = APP.settings.familyCode;
+  // Save everything except API key (sensitive) and local-only fields
+  const cloudPayload = {
+    users: APP.users,
+    userData: {},
+    settings: { yenPerPoint: APP.settings.yenPerPoint },
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: APP.currentUserId || 'unknown'
+  };
+  // Deep-copy userData but strip coverImage (too large for Firestore)
+  for (const [uid, data] of Object.entries(APP.userData)) {
+    cloudPayload.userData[uid] = {
+      books: (data.books || []).map(b => {
+        const copy = { ...b };
+        if (copy.coverImage && copy.coverImage.length > 50000) {
+          copy.coverImage = null; // Strip large images
+        }
+        return copy;
+      }),
+      quizResults: data.quizResults || []
+    };
+  }
+  await _db.collection('families').doc(code).set(cloudPayload, { merge: true });
+  APP.lastSyncAt = new Date().toISOString();
+}
+
+function mergeCloudData(cloud) {
+  if (!cloud) return;
+  // Merge users: add any users from cloud not in local
+  const localIds = new Set(APP.users.map(u => u.id));
+  (cloud.users || []).forEach(u => {
+    if (!localIds.has(u.id)) APP.users.push(u);
+  });
+
+  // Merge userData: for each user, merge books and quizResults
+  for (const [uid, cloudUserData] of Object.entries(cloud.userData || {})) {
+    if (!APP.userData[uid]) {
+      APP.userData[uid] = cloudUserData;
+    } else {
+      // Merge books
+      const localBookIds = new Set(APP.userData[uid].books.map(b => b.id));
+      (cloudUserData.books || []).forEach(b => {
+        if (!localBookIds.has(b.id)) {
+          APP.userData[uid].books.push(b);
+        } else {
+          // Update existing book if cloud version has more progress
+          const local = APP.userData[uid].books.find(lb => lb.id === b.id);
+          const localDone = local.quizSchedule.filter(s => s.completed).length;
+          const cloudDone = b.quizSchedule.filter(s => s.completed).length;
+          if (cloudDone > localDone) {
+            Object.assign(local, b);
+          }
+        }
+      });
+      // Merge quizResults: add any results not in local (by date+bookId+dayIndex)
+      const localResultKeys = new Set(
+        APP.userData[uid].quizResults.map(r => `${r.bookId}_${r.dayIndex}_${r.date}`)
+      );
+      (cloudUserData.quizResults || []).forEach(r => {
+        const key = `${r.bookId}_${r.dayIndex}_${r.date}`;
+        if (!localResultKeys.has(key)) {
+          APP.userData[uid].quizResults.push(r);
+        }
+      });
+    }
+  }
+
+  // Merge settings (keep local API key, take cloud yenPerPoint)
+  if (cloud.settings?.yenPerPoint) {
+    APP.settings.yenPerPoint = cloud.settings.yenPerPoint;
+  }
+
+  saveAppData_local();
+}
+
+function startRealtimeSync() {
+  if (_unsubscribe) _unsubscribe();
+  if (!APP.settings.familyCode || !_db) return;
+
+  _unsubscribe = _db.collection('families').doc(APP.settings.familyCode)
+    .onSnapshot((doc) => {
+      if (!doc.exists) return;
+      const cloud = doc.data();
+      // Only merge if the update came from a different source
+      if (cloud.updatedBy !== APP.currentUserId) {
+        mergeCloudData(cloud);
+        // Re-render current view
+        const activeView = document.querySelector('.view.active');
+        if (activeView?.id === 'view-home') renderHome();
+        if (activeView?.id === 'view-history') renderHistory();
+      }
+      updateSyncStatus('synced', 'Synced');
+    }, (err) => {
+      console.error('Realtime sync error:', err);
+      updateSyncStatus('error', 'Sync error');
+    });
+}
+
+// Save to localStorage only (no cloud trigger)
+function saveAppData_local() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(APP));
+}
+
+function renderSettingsSync() {
+  const code = APP.settings.familyCode;
+  const input = document.getElementById('family-code-input');
+  const connectedInfo = document.getElementById('cloud-connected-info');
+  if (code) {
+    if (input) input.value = code;
+    if (connectedInfo) connectedInfo.style.display = 'block';
+    document.getElementById('display-family-code').textContent = code;
+    const lastSync = APP.lastSyncAt
+      ? `Last synced: ${new Date(APP.lastSyncAt).toLocaleString()}`
+      : 'Not synced yet';
+    document.getElementById('last-sync-time').textContent = lastSync;
+  } else {
+    if (input) input.value = '';
+    if (connectedInfo) connectedInfo.style.display = 'none';
+  }
+}
+
+// ============================================================
 // INIT
 // ============================================================
-if (APP.currentUserId && currentUser()) {
-  showView('home');
-} else {
-  showView('welcome');
-}
+// Initialize Firebase and restore sync if previously connected
+(async function init() {
+  if (APP.settings.familyCode) {
+    if (initFirebase()) {
+      updateSyncStatus('syncing', 'Reconnecting...');
+      try {
+        const doc = await _db.collection('families').doc(APP.settings.familyCode).get();
+        if (doc.exists) {
+          mergeCloudData(doc.data());
+        }
+        startRealtimeSync();
+        updateSyncStatus('synced', 'Synced');
+      } catch (e) {
+        console.error('Initial sync failed:', e);
+        updateSyncStatus('error', 'Sync failed - offline mode');
+      }
+    }
+  }
+
+  if (APP.currentUserId && currentUser()) {
+    showView('home');
+  } else {
+    showView('welcome');
+  }
+})();
 </script>
 </body>
 </html>
