@@ -502,14 +502,54 @@ body {
 
   <!-- ADD BOOK VIEW -->
   <div id="view-addbook" class="view">
-    <div class="card">
-      <div class="card-title">Take a Photo of the Book Cover</div>
+    <!-- Mode selector -->
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="btn btn-primary" id="mode-manual-btn" onclick="switchAddMode('manual')" style="flex:1">✏️ Enter Manually</button>
+      <button class="btn btn-secondary" id="mode-photo-btn" onclick="switchAddMode('photo')" style="flex:1">📷 Upload Photo</button>
+    </div>
+
+    <!-- MANUAL MODE -->
+    <div class="card" id="add-mode-manual">
+      <div class="card-title">Enter Book Info</div>
+      <div class="book-form">
+        <div class="form-group">
+          <label>Book Title *</label>
+          <input type="text" id="manual-title" placeholder="e.g. Harry Potter and the Sorcerer's Stone">
+        </div>
+        <div class="form-group">
+          <label>Author *</label>
+          <input type="text" id="manual-author" placeholder="e.g. J.K. Rowling">
+        </div>
+        <div class="form-group">
+          <label>Total Chapters *</label>
+          <input type="number" id="manual-chapters" min="1" max="200" placeholder="e.g. 17">
+        </div>
+        <div class="form-group">
+          <label>Language</label>
+          <select id="manual-language" style="width:100%;padding:10px 14px;border:2px solid #E0E0F0;border-radius:10px;font-size:1rem">
+            <option value="en">English</option>
+            <option value="ja">Japanese</option>
+            <option value="ko">Korean</option>
+            <option value="zh">Chinese</option>
+          </select>
+        </div>
+        <div id="manual-schedule-preview" style="margin-top:12px"></div>
+        <button class="btn btn-primary" onclick="registerManualBook()" style="margin-top:12px">Register This Book</button>
+      </div>
+    </div>
+
+    <!-- PHOTO MODE -->
+    <div class="card" id="add-mode-photo" style="display:none">
+      <div class="card-title">Upload Book Cover Photo</div>
       <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
         <div class="icon">📸</div>
         <p>Tap to select a photo<br>or drag & drop</p>
       </div>
       <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" onchange="handleImageUpload(event)">
       <img id="preview-img" class="preview-img" style="display:none">
+      <div id="photo-no-apikey" style="display:none;padding:12px;background:#FFF8E1;border-radius:12px;margin-bottom:12px">
+        <p style="font-size:0.85rem;color:#F57F17">⚠️ Photo recognition requires a Claude API key. Please set it in Settings, or use "Enter Manually" mode instead.</p>
+      </div>
       <div id="ai-detect-result" style="display:none">
         <div class="book-form">
           <div class="form-group">
@@ -528,8 +568,9 @@ body {
           <button class="btn btn-primary" onclick="registerBook()" style="margin-top:12px">Register This Book</button>
         </div>
       </div>
-      <button class="btn btn-secondary" onclick="showView('home')" style="margin-top:12px">← Back</button>
     </div>
+
+    <button class="btn btn-secondary" onclick="showView('home')" style="margin-top:12px">← Back</button>
   </div>
 
   <!-- BOOK DETAIL VIEW -->
@@ -915,15 +956,95 @@ function calcMonthEarnings(ym) {
 // ADD BOOK
 // ============================================================
 let uploadedImageBase64 = null;
+let addBookMode = 'manual';
+
+function switchAddMode(mode) {
+  addBookMode = mode;
+  document.getElementById('add-mode-manual').style.display = mode === 'manual' ? 'block' : 'none';
+  document.getElementById('add-mode-photo').style.display = mode === 'photo' ? 'block' : 'none';
+  document.getElementById('mode-manual-btn').className = `btn ${mode === 'manual' ? 'btn-primary' : 'btn-secondary'}`;
+  document.getElementById('mode-photo-btn').className = `btn ${mode === 'photo' ? 'btn-primary' : 'btn-secondary'}`;
+  // Show API key warning in photo mode if not set
+  if (mode === 'photo') {
+    document.getElementById('photo-no-apikey').style.display = APP.settings.apiKey ? 'none' : 'block';
+  }
+}
 
 function resetAddBook() {
+  // Reset photo mode
   document.getElementById('preview-img').style.display = 'none';
   document.getElementById('ai-detect-result').style.display = 'none';
   document.getElementById('upload-zone').style.display = 'block';
+  document.getElementById('photo-no-apikey').style.display = 'none';
   uploadedImageBase64 = null;
+  // Reset manual mode
+  document.getElementById('manual-title').value = '';
+  document.getElementById('manual-author').value = '';
+  document.getElementById('manual-chapters').value = '';
+  document.getElementById('manual-language').value = 'en';
+  document.getElementById('manual-schedule-preview').innerHTML = '';
+  // Default to manual mode
+  switchAddMode('manual');
 }
 
-// Drag & drop
+// Manual mode: schedule preview
+document.getElementById('manual-chapters')?.addEventListener('input', () => {
+  const total = parseInt(document.getElementById('manual-chapters').value) || 0;
+  const groups = splitChapters(total);
+  const el = document.getElementById('manual-schedule-preview');
+  if (groups.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = renderSchedulePreview(groups);
+});
+
+function renderSchedulePreview(groups) {
+  return `<p style="font-size:0.85rem;font-weight:600;margin-bottom:8px">Quiz Schedule (${groups.length} days)</p>` +
+    groups.map((g, i) => `<div class="schedule-item">
+      <div><span class="schedule-day">Day ${i+1}</span>
+      <span class="schedule-chapters">Ch. ${g.start}-${g.end} (${g.end - g.start + 1} chapters)</span></div>
+    </div>`).join('');
+}
+
+function registerManualBook() {
+  const title = document.getElementById('manual-title').value.trim();
+  const author = document.getElementById('manual-author').value.trim();
+  const chapters = parseInt(document.getElementById('manual-chapters').value);
+  const language = document.getElementById('manual-language').value;
+  if (!title) { alert('Please enter the book title.'); return; }
+  if (!author) { alert('Please enter the author name.'); return; }
+  if (!chapters || chapters < 1) { alert('Please enter the number of chapters.'); return; }
+
+  // Check for duplicate (same title + author)
+  const data = currentData();
+  const duplicate = data.books.find(b =>
+    b.title.toLowerCase() === title.toLowerCase() &&
+    b.author.toLowerCase() === author.toLowerCase() &&
+    b.status === 'in_progress'
+  );
+  if (duplicate) {
+    alert('This book is already registered and in progress!');
+    return;
+  }
+
+  const groups = splitChapters(chapters);
+  const book = {
+    id: 'bk_' + Date.now(),
+    title, author, totalChapters: chapters,
+    language,
+    coverImage: null,
+    quizSchedule: groups.map((g, i) => ({
+      day: i + 1, chapStart: g.start, chapEnd: g.end,
+      chaptersLabel: `${g.start}-${g.end}`,
+      completed: false, score: null, maxScore: null, date: null
+    })),
+    addedDate: new Date().toISOString().slice(0, 10),
+    status: 'in_progress'
+  };
+  data.books.push(book);
+  saveAppData();
+  showView('home');
+}
+
+// Drag & drop for photo mode
 const zone = document.getElementById('upload-zone');
 zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
 zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
@@ -944,17 +1065,18 @@ function processImage(file) {
     img.src = dataUrl;
     img.style.display = 'block';
     document.getElementById('upload-zone').style.display = 'none';
+    if (!APP.settings.apiKey) {
+      document.getElementById('photo-no-apikey').style.display = 'block';
+      // Still show the form for manual editing
+      document.getElementById('ai-detect-result').style.display = 'block';
+      return;
+    }
     await detectBook();
   };
   reader.readAsDataURL(file);
 }
 
 async function detectBook() {
-  if (!APP.settings.apiKey) {
-    alert('Please enter your API key in Settings first.');
-    showView('settings');
-    return;
-  }
   showLoading('AI is recognizing the book...');
   try {
     const resp = await callClaude([
@@ -982,6 +1104,8 @@ Detect the language from the cover text (English book = "en", Japanese = "ja", K
     document.getElementById('ai-detect-result').style.display = 'block';
   } catch (e) {
     alert('Failed to recognize book: ' + e.message);
+    // Show form anyway for manual editing
+    document.getElementById('ai-detect-result').style.display = 'block';
   } finally {
     hideLoading();
   }
@@ -994,11 +1118,7 @@ function updateSchedulePreview() {
   const groups = splitChapters(total);
   const el = document.getElementById('schedule-preview');
   if (groups.length === 0) { el.innerHTML = ''; return; }
-  el.innerHTML = `<p style="font-size:0.85rem;font-weight:600;margin-bottom:8px">Quiz Schedule (${groups.length} days)</p>` +
-    groups.map((g, i) => `<div class="schedule-item">
-      <div><span class="schedule-day">Day ${i+1}</span>
-      <span class="schedule-chapters">Ch. ${g.start}-${g.end} (${g.end - g.start + 1} chapters)</span></div>
-    </div>`).join('');
+  el.innerHTML = renderSchedulePreview(groups);
 }
 
 function splitChapters(total) {
