@@ -502,15 +502,26 @@ body {
 
   <!-- ADD BOOK VIEW -->
   <div id="view-addbook" class="view">
-    <!-- Mode selector -->
-    <div style="display:flex;gap:8px;margin-bottom:16px">
-      <button class="btn btn-primary" id="mode-manual-btn" onclick="switchAddMode('manual')" style="flex:1">✏️ Enter Manually</button>
-      <button class="btn btn-secondary" id="mode-photo-btn" onclick="switchAddMode('photo')" style="flex:1">📷 Upload Photo</button>
-    </div>
+    <div class="card">
+      <div class="card-title">Add a New Book</div>
 
-    <!-- MANUAL MODE -->
-    <div class="card" id="add-mode-manual">
-      <div class="card-title">Enter Book Info</div>
+      <!-- Cover photo area -->
+      <div style="margin-bottom:16px">
+        <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:6px">Book Cover</label>
+        <div style="display:flex;gap:12px;align-items:center">
+          <div id="cover-thumb" style="width:70px;height:100px;border-radius:8px;background:#E8E8F0;display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0;overflow:hidden">📕</div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('file-input').click()" style="width:auto">📷 Upload Photo</button>
+            <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" onchange="handleImageUpload(event)">
+            <div id="ai-recognize-btn" style="display:none">
+              <button class="btn btn-sm" onclick="detectBook()" style="width:auto;background:#F0E8FF;color:var(--primary)">✨ Auto-fill with AI</button>
+            </div>
+            <span style="font-size:0.7rem;color:var(--text-light)" id="cover-hint">Enter title & author, then cover will be found automatically</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Book info form (always visible) -->
       <div class="book-form">
         <div class="form-group">
           <label>Book Title *</label>
@@ -537,39 +548,6 @@ body {
         <button class="btn btn-primary" onclick="registerManualBook()" style="margin-top:12px">Register This Book</button>
       </div>
     </div>
-
-    <!-- PHOTO MODE -->
-    <div class="card" id="add-mode-photo" style="display:none">
-      <div class="card-title">Upload Book Cover Photo</div>
-      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
-        <div class="icon">📸</div>
-        <p>Tap to select a photo<br>or drag & drop</p>
-      </div>
-      <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" onchange="handleImageUpload(event)">
-      <img id="preview-img" class="preview-img" style="display:none">
-      <div id="photo-no-apikey" style="display:none;padding:12px;background:#FFF8E1;border-radius:12px;margin-bottom:12px">
-        <p style="font-size:0.85rem;color:#F57F17">⚠️ Photo recognition requires a Claude API key. Please set it in Settings, or use "Enter Manually" mode instead.</p>
-      </div>
-      <div id="ai-detect-result" style="display:none">
-        <div class="book-form">
-          <div class="form-group">
-            <label>Book Title</label>
-            <input type="text" id="book-title-input" placeholder="AI will fill this in">
-          </div>
-          <div class="form-group">
-            <label>Author</label>
-            <input type="text" id="book-author-input" placeholder="AI will fill this in">
-          </div>
-          <div class="form-group">
-            <label>Total Chapters</label>
-            <input type="number" id="book-chapters-input" min="1" max="200" placeholder="AI will fill this in">
-          </div>
-          <div id="schedule-preview" style="margin-top:12px"></div>
-          <button class="btn btn-primary" onclick="registerBook()" style="margin-top:12px">Register This Book</button>
-        </div>
-      </div>
-    </div>
-
     <button class="btn btn-secondary" onclick="showView('home')" style="margin-top:12px">← Back</button>
   </div>
 
@@ -956,38 +934,61 @@ function calcMonthEarnings(ym) {
 // ADD BOOK
 // ============================================================
 let uploadedImageBase64 = null;
-let addBookMode = 'manual';
-
-function switchAddMode(mode) {
-  addBookMode = mode;
-  document.getElementById('add-mode-manual').style.display = mode === 'manual' ? 'block' : 'none';
-  document.getElementById('add-mode-photo').style.display = mode === 'photo' ? 'block' : 'none';
-  document.getElementById('mode-manual-btn').className = `btn ${mode === 'manual' ? 'btn-primary' : 'btn-secondary'}`;
-  document.getElementById('mode-photo-btn').className = `btn ${mode === 'photo' ? 'btn-primary' : 'btn-secondary'}`;
-  // Show API key warning in photo mode if not set
-  if (mode === 'photo') {
-    document.getElementById('photo-no-apikey').style.display = APP.settings.apiKey ? 'none' : 'block';
-  }
-}
+let uploadedCoverDataUrl = null;
 
 function resetAddBook() {
-  // Reset photo mode
-  document.getElementById('preview-img').style.display = 'none';
-  document.getElementById('ai-detect-result').style.display = 'none';
-  document.getElementById('upload-zone').style.display = 'block';
-  document.getElementById('photo-no-apikey').style.display = 'none';
   uploadedImageBase64 = null;
-  // Reset manual mode
+  uploadedCoverDataUrl = null;
+  document.getElementById('cover-thumb').innerHTML = '📕';
+  document.getElementById('ai-recognize-btn').style.display = 'none';
   document.getElementById('manual-title').value = '';
   document.getElementById('manual-author').value = '';
   document.getElementById('manual-chapters').value = '';
   document.getElementById('manual-language').value = 'en';
   document.getElementById('manual-schedule-preview').innerHTML = '';
-  // Default to manual mode
-  switchAddMode('manual');
 }
 
-// Manual mode: schedule preview
+// Auto-search book cover when title or author changes
+let _coverSearchTimer = null;
+document.getElementById('manual-title')?.addEventListener('input', debouncedCoverSearch);
+document.getElementById('manual-author')?.addEventListener('input', debouncedCoverSearch);
+
+function debouncedCoverSearch() {
+  clearTimeout(_coverSearchTimer);
+  _coverSearchTimer = setTimeout(searchBookCover, 1200);
+}
+
+async function searchBookCover() {
+  const title = document.getElementById('manual-title').value.trim();
+  const author = document.getElementById('manual-author').value.trim();
+  if (!title || title.length < 2) return;
+  // Don't overwrite if user already uploaded a photo
+  if (uploadedCoverDataUrl) return;
+
+  const query = encodeURIComponent(author ? `${title} ${author}` : title);
+  try {
+    const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=3`);
+    const data = await resp.json();
+    if (data.items && data.items.length > 0) {
+      // Find best match
+      const book = data.items[0];
+      const info = book.volumeInfo;
+      const thumb = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail;
+      if (thumb) {
+        // Use higher quality image
+        const imgUrl = thumb.replace('http://', 'https://').replace('&edge=curl', '');
+        document.getElementById('cover-thumb').innerHTML =
+          `<img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentElement.innerHTML='📕'">`;
+        uploadedCoverDataUrl = imgUrl;
+        document.getElementById('cover-hint').textContent = '✅ Cover found! Change it with Upload Photo if needed.';
+      }
+    }
+  } catch (e) {
+    // Silently fail - cover search is optional
+  }
+}
+
+// Schedule preview on chapter input
 document.getElementById('manual-chapters')?.addEventListener('input', () => {
   const total = parseInt(document.getElementById('manual-chapters').value) || 0;
   const groups = splitChapters(total);
@@ -1004,79 +1005,29 @@ function renderSchedulePreview(groups) {
     </div>`).join('');
 }
 
-function registerManualBook() {
-  const title = document.getElementById('manual-title').value.trim();
-  const author = document.getElementById('manual-author').value.trim();
-  const chapters = parseInt(document.getElementById('manual-chapters').value);
-  const language = document.getElementById('manual-language').value;
-  if (!title) { alert('Please enter the book title.'); return; }
-  if (!author) { alert('Please enter the author name.'); return; }
-  if (!chapters || chapters < 1) { alert('Please enter the number of chapters.'); return; }
-
-  // Check for duplicate (same title + author)
-  const data = currentData();
-  const duplicate = data.books.find(b =>
-    b.title.toLowerCase() === title.toLowerCase() &&
-    b.author.toLowerCase() === author.toLowerCase() &&
-    b.status === 'in_progress'
-  );
-  if (duplicate) {
-    alert('This book is already registered and in progress!');
-    return;
-  }
-
-  const groups = splitChapters(chapters);
-  const book = {
-    id: 'bk_' + Date.now(),
-    title, author, totalChapters: chapters,
-    language,
-    coverImage: null,
-    quizSchedule: groups.map((g, i) => ({
-      day: i + 1, chapStart: g.start, chapEnd: g.end,
-      chaptersLabel: `${g.start}-${g.end}`,
-      completed: false, score: null, maxScore: null, date: null
-    })),
-    addedDate: new Date().toISOString().slice(0, 10),
-    status: 'in_progress'
-  };
-  data.books.push(book);
-  saveAppData();
-  showView('home');
-}
-
-// Drag & drop for photo mode
-const zone = document.getElementById('upload-zone');
-zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
-zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover');
-  if (e.dataTransfer.files[0]) processImage(e.dataTransfer.files[0]);
-});
-
+// Photo upload → cover thumbnail + optional AI recognize
 function handleImageUpload(e) {
   if (e.target.files[0]) processImage(e.target.files[0]);
 }
 
 function processImage(file) {
   const reader = new FileReader();
-  reader.onload = async (ev) => {
+  reader.onload = (ev) => {
     const dataUrl = ev.target.result;
     uploadedImageBase64 = dataUrl.split(',')[1];
-    const img = document.getElementById('preview-img');
-    img.src = dataUrl;
-    img.style.display = 'block';
-    document.getElementById('upload-zone').style.display = 'none';
-    if (!APP.settings.apiKey) {
-      document.getElementById('photo-no-apikey').style.display = 'block';
-      // Still show the form for manual editing
-      document.getElementById('ai-detect-result').style.display = 'block';
-      return;
+    uploadedCoverDataUrl = dataUrl;
+    // Show thumbnail
+    document.getElementById('cover-thumb').innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`;
+    // Show AI button if API key is set
+    if (APP.settings.apiKey) {
+      document.getElementById('ai-recognize-btn').style.display = 'block';
     }
-    await detectBook();
   };
   reader.readAsDataURL(file);
 }
 
 async function detectBook() {
+  if (!APP.settings.apiKey || !uploadedImageBase64) return;
   showLoading('AI is recognizing the book...');
   try {
     const resp = await callClaude([
@@ -1096,29 +1047,57 @@ Detect the language from the cover text (English book = "en", Japanese = "ja", K
       ]}
     ]);
     const json = extractJSON(resp);
-    document.getElementById('book-title-input').value = json.title || '';
-    document.getElementById('book-author-input').value = json.author || '';
-    document.getElementById('book-chapters-input').value = json.totalChapters || 20;
-    window._detectedLanguage = json.language || 'en';
-    updateSchedulePreview();
-    document.getElementById('ai-detect-result').style.display = 'block';
+    document.getElementById('manual-title').value = json.title || '';
+    document.getElementById('manual-author').value = json.author || '';
+    document.getElementById('manual-chapters').value = json.totalChapters || 20;
+    if (json.language) document.getElementById('manual-language').value = json.language;
+    // Trigger schedule preview
+    document.getElementById('manual-chapters').dispatchEvent(new Event('input'));
   } catch (e) {
     alert('Failed to recognize book: ' + e.message);
-    // Show form anyway for manual editing
-    document.getElementById('ai-detect-result').style.display = 'block';
   } finally {
     hideLoading();
   }
 }
 
-document.getElementById('book-chapters-input')?.addEventListener('input', updateSchedulePreview);
+function registerManualBook() {
+  const title = document.getElementById('manual-title').value.trim();
+  const author = document.getElementById('manual-author').value.trim();
+  const chapters = parseInt(document.getElementById('manual-chapters').value);
+  const language = document.getElementById('manual-language').value;
+  if (!title) { alert('Please enter the book title.'); return; }
+  if (!author) { alert('Please enter the author name.'); return; }
+  if (!chapters || chapters < 1) { alert('Please enter the number of chapters.'); return; }
 
-function updateSchedulePreview() {
-  const total = parseInt(document.getElementById('book-chapters-input').value) || 0;
-  const groups = splitChapters(total);
-  const el = document.getElementById('schedule-preview');
-  if (groups.length === 0) { el.innerHTML = ''; return; }
-  el.innerHTML = renderSchedulePreview(groups);
+  // Check for duplicate
+  const data = currentData();
+  const duplicate = data.books.find(b =>
+    b.title.toLowerCase() === title.toLowerCase() &&
+    b.author.toLowerCase() === author.toLowerCase() &&
+    b.status === 'in_progress'
+  );
+  if (duplicate) {
+    alert('This book is already registered and in progress!');
+    return;
+  }
+
+  const groups = splitChapters(chapters);
+  const book = {
+    id: 'bk_' + Date.now(),
+    title, author, totalChapters: chapters,
+    language,
+    coverImage: uploadedCoverDataUrl || null,
+    quizSchedule: groups.map((g, i) => ({
+      day: i + 1, chapStart: g.start, chapEnd: g.end,
+      chaptersLabel: `${g.start}-${g.end}`,
+      completed: false, score: null, maxScore: null, date: null
+    })),
+    addedDate: new Date().toISOString().slice(0, 10),
+    status: 'in_progress'
+  };
+  data.books.push(book);
+  saveAppData();
+  showView('home');
 }
 
 function splitChapters(total) {
@@ -1148,36 +1127,6 @@ function splitChapters(total) {
     groups.push({ start: cursor, end: total });
   }
   return groups;
-}
-
-function registerBook() {
-  const title = document.getElementById('book-title-input').value.trim();
-  const author = document.getElementById('book-author-input').value.trim();
-  const chapters = parseInt(document.getElementById('book-chapters-input').value);
-  if (!title || !chapters) { alert('Please enter the title and chapter count.'); return; }
-
-  const groups = splitChapters(chapters);
-  const book = {
-    id: 'bk_' + Date.now(),
-    title, author, totalChapters: chapters,
-    language: window._detectedLanguage || 'en',
-    coverImage: uploadedImageBase64 ? document.getElementById('preview-img').src : null,
-    quizSchedule: groups.map((g, i) => ({
-      day: i + 1,
-      chapStart: g.start,
-      chapEnd: g.end,
-      chaptersLabel: `${g.start}-${g.end}`,
-      completed: false,
-      score: null,
-      maxScore: null,
-      date: null
-    })),
-    addedDate: new Date().toISOString().slice(0, 10),
-    status: 'in_progress'
-  };
-  currentData().books.push(book);
-  saveAppData();
-  showView('home');
 }
 
 // ============================================================
