@@ -962,30 +962,62 @@ async function searchBookCover() {
   const title = document.getElementById('manual-title').value.trim();
   const author = document.getElementById('manual-author').value.trim();
   if (!title || title.length < 2) return;
-  // Don't overwrite if user already uploaded a photo
-  if (uploadedCoverDataUrl) return;
+  if (uploadedCoverDataUrl) return; // Don't overwrite user's photo
 
-  const query = encodeURIComponent(author ? `${title} ${author}` : title);
-  try {
-    const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=3`);
-    const data = await resp.json();
-    if (data.items && data.items.length > 0) {
-      // Find best match
-      const book = data.items[0];
-      const info = book.volumeInfo;
-      const thumb = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail;
-      if (thumb) {
-        // Use higher quality image
-        const imgUrl = thumb.replace('http://', 'https://').replace('&edge=curl', '');
-        document.getElementById('cover-thumb').innerHTML =
-          `<img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentElement.innerHTML='📕'">`;
-        uploadedCoverDataUrl = imgUrl;
-        document.getElementById('cover-hint').textContent = '✅ Cover found! Change it with Upload Photo if needed.';
+  document.getElementById('cover-hint').textContent = '🔍 Searching for cover...';
+
+  // Try multiple search strategies
+  const searches = [
+    author ? `intitle:${title}+inauthor:${author}` : `intitle:${title}`,
+    `${title} ${author || ''}`.trim()
+  ];
+
+  for (const q of searches) {
+    try {
+      const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`);
+      const data = await resp.json();
+      if (!data.items) continue;
+
+      // Find best match with a cover image
+      for (const item of data.items) {
+        const info = item.volumeInfo;
+        const thumb = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail;
+        if (!thumb) continue;
+
+        // Prefer higher quality: zoom=1 for larger image
+        const imgUrl = thumb.replace('http://', 'https://')
+          .replace('&edge=curl', '')
+          .replace('zoom=5', 'zoom=1')
+          .replace('zoom=2', 'zoom=1');
+
+        // Verify image loads before showing
+        const ok = await testImage(imgUrl);
+        if (ok) {
+          document.getElementById('cover-thumb').innerHTML =
+            `<img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentElement.innerHTML='📕'">`;
+          uploadedCoverDataUrl = imgUrl;
+          const matchTitle = info.title || '';
+          const matchAuthor = (info.authors || []).join(', ');
+          document.getElementById('cover-hint').innerHTML =
+            `✅ Found: <strong>${esc(matchTitle)}</strong>${matchAuthor ? ' by ' + esc(matchAuthor) : ''}<br>
+            <span style="font-size:0.65rem">Wrong book? Use "Upload Photo" to replace.</span>`;
+          return;
+        }
       }
-    }
-  } catch (e) {
-    // Silently fail - cover search is optional
+    } catch (e) { /* continue to next search */ }
   }
+
+  document.getElementById('cover-hint').textContent = 'No cover found. You can upload a photo manually.';
+}
+
+function testImage(url) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url;
+    setTimeout(() => resolve(false), 3000);
+  });
 }
 
 // Schedule preview on chapter input
@@ -1016,9 +1048,8 @@ function processImage(file) {
     const dataUrl = ev.target.result;
     uploadedImageBase64 = dataUrl.split(',')[1];
     uploadedCoverDataUrl = dataUrl;
-    // Show thumbnail
     document.getElementById('cover-thumb').innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`;
-    // Show AI button if API key is set
+    document.getElementById('cover-hint').textContent = '✅ Photo uploaded!';
     if (APP.settings.apiKey) {
       document.getElementById('ai-recognize-btn').style.display = 'block';
     }
