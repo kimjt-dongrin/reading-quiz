@@ -962,61 +962,108 @@ async function searchBookCover() {
   const title = document.getElementById('manual-title').value.trim();
   const author = document.getElementById('manual-author').value.trim();
   if (!title || title.length < 2) return;
-  if (uploadedCoverDataUrl) return; // Don't overwrite user's photo
+  if (uploadedCoverDataUrl) return;
 
   document.getElementById('cover-hint').textContent = '🔍 Searching for cover...';
 
-  // Try multiple search strategies
-  const searches = [
+  // Strategy 1: Google Books API (multiple queries)
+  const googleQueries = [
     author ? `intitle:${title}+inauthor:${author}` : `intitle:${title}`,
     `${title} ${author || ''}`.trim()
   ];
 
-  for (const q of searches) {
+  for (const q of googleQueries) {
     try {
       const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`);
       const data = await resp.json();
       if (!data.items) continue;
 
-      // Find best match with a cover image
       for (const item of data.items) {
         const info = item.volumeInfo;
         const thumb = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail;
         if (!thumb) continue;
-
-        // Prefer higher quality: zoom=1 for larger image
-        const imgUrl = thumb.replace('http://', 'https://')
-          .replace('&edge=curl', '')
-          .replace('zoom=5', 'zoom=1')
-          .replace('zoom=2', 'zoom=1');
-
-        // Verify image loads before showing
+        const imgUrl = thumb.replace('http://', 'https://').replace('&edge=curl', '').replace(/zoom=\d/, 'zoom=1');
         const ok = await testImage(imgUrl);
         if (ok) {
-          document.getElementById('cover-thumb').innerHTML =
-            `<img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentElement.innerHTML='📕'">`;
-          uploadedCoverDataUrl = imgUrl;
-          const matchTitle = info.title || '';
-          const matchAuthor = (info.authors || []).join(', ');
-          document.getElementById('cover-hint').innerHTML =
-            `✅ Found: <strong>${esc(matchTitle)}</strong>${matchAuthor ? ' by ' + esc(matchAuthor) : ''}<br>
-            <span style="font-size:0.65rem">Wrong book? Use "Upload Photo" to replace.</span>`;
+          showFoundCover(imgUrl, info.title, (info.authors || []).join(', '));
           return;
         }
       }
-    } catch (e) { /* continue to next search */ }
+    } catch (e) {}
+  }
+
+  // Strategy 2: Open Library API
+  try {
+    const olQuery = encodeURIComponent(author ? `${title} ${author}` : title);
+    const resp = await fetch(`https://openlibrary.org/search.json?q=${olQuery}&limit=5`);
+    const data = await resp.json();
+    if (data.docs) {
+      for (const doc of data.docs) {
+        if (doc.cover_i) {
+          const imgUrl = `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`;
+          const ok = await testImage(imgUrl);
+          if (ok) {
+            showFoundCover(imgUrl, doc.title, (doc.author_name || []).join(', '));
+            return;
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
+  // Strategy 3: If API key available, ask Claude to identify the book and suggest an English title for search
+  if (APP.settings.apiKey && !uploadedCoverDataUrl) {
+    try {
+      const resp = await callClaude([{ role: 'user', content:
+        `I need the original English title and author for this book: "${title}" by "${author}".
+Return ONLY JSON: {"englishTitle": "...", "englishAuthor": "...", "isbn": "..."}`
+      }]);
+      const info = extractJSON(resp);
+      if (info.isbn) {
+        const imgUrl = `https://covers.openlibrary.org/b/isbn/${info.isbn}-M.jpg`;
+        const ok = await testImage(imgUrl);
+        if (ok) { showFoundCover(imgUrl, info.englishTitle || title, info.englishAuthor || author); return; }
+      }
+      if (info.englishTitle) {
+        const q = encodeURIComponent(`${info.englishTitle} ${info.englishAuthor || ''}`);
+        const gResp = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=3`);
+        const gData = await gResp.json();
+        if (gData.items) {
+          for (const item of gData.items) {
+            const thumb = item.volumeInfo.imageLinks?.thumbnail;
+            if (thumb) {
+              const imgUrl = thumb.replace('http://', 'https://').replace('&edge=curl', '').replace(/zoom=\d/, 'zoom=1');
+              const ok = await testImage(imgUrl);
+              if (ok) {
+                showFoundCover(imgUrl, item.volumeInfo.title, (item.volumeInfo.authors || []).join(', '));
+                return;
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {}
   }
 
   document.getElementById('cover-hint').textContent = 'No cover found. You can upload a photo manually.';
 }
 
+function showFoundCover(imgUrl, matchTitle, matchAuthor) {
+  document.getElementById('cover-thumb').innerHTML =
+    `<img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentElement.innerHTML='📕'">`;
+  uploadedCoverDataUrl = imgUrl;
+  document.getElementById('cover-hint').innerHTML =
+    `✅ <strong>${esc(matchTitle || '')}</strong>${matchAuthor ? ' — ' + esc(matchAuthor) : ''}<br>
+    <span style="font-size:0.65rem">Wrong book? Use "Upload Photo" to replace.</span>`;
+}
+
 function testImage(url) {
   return new Promise(resolve => {
     const img = new Image();
-    img.onload = () => resolve(true);
+    img.onload = () => resolve(img.naturalWidth > 1 && img.naturalHeight > 1);
     img.onerror = () => resolve(false);
     img.src = url;
-    setTimeout(() => resolve(false), 3000);
+    setTimeout(() => resolve(false), 4000);
   });
 }
 
