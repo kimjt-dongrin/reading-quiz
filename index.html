@@ -607,9 +607,9 @@ body {
     <div class="card">
       <div class="card-title">Settings</div>
       <div class="setting-item">
-        <label>Claude API Key</label>
-        <input type="password" id="api-key-input" placeholder="sk-ant-...">
-        <span style="font-size:0.75rem;color:var(--text-light)">Enter your Anthropic API key</span>
+        <label>Claude API Key (optional)</label>
+        <input type="password" id="api-key-input" placeholder="Not required — free proxy is used by default">
+        <span style="font-size:0.75rem;color:var(--text-light)">Leave empty to use the free built-in service. Enter your own key for unlimited usage.</span>
       </div>
       <div class="setting-item">
         <label>Yen per Point</label>
@@ -1331,7 +1331,7 @@ async function startQuiz(bookId, dayIndex) {
     return;
   }
 
-  if (!APP.settings.apiKey) { alert('Please set your API key first.'); showView('settings'); return; }
+  // API key no longer required - proxy handles it
 
   showLoading('AI is creating questions...');
   try {
@@ -1841,15 +1841,24 @@ function confirmReset() {
 // ============================================================
 // CLAUDE API
 // ============================================================
+const PROXY_URL = 'https://reading-quiz-api.kimjt.workers.dev';
+
 async function callClaude(messages) {
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+  // Use proxy (no API key needed) or direct API if user has their own key
+  const useProxy = !APP.settings.apiKey;
+
+  const url = useProxy ? PROXY_URL : 'https://api.anthropic.com/v1/messages';
+  const headers = { 'Content-Type': 'application/json' };
+
+  if (!useProxy) {
+    headers['x-api-key'] = APP.settings.apiKey;
+    headers['anthropic-version'] = '2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+  }
+
+  const resp = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': APP.settings.apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
+    headers,
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 8000,
